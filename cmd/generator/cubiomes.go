@@ -16,7 +16,7 @@ func Cubiomes() {
 
 	execCubiomes := exec.CommandContext(
 		context.TODO(),
-		"./cubiomes", fmt.Sprintf("%d", int64(seed)),
+		"./bin/cubiomes", fmt.Sprintf("%d", int64(seed)),
 	)
 	outCubiomes, err := execCubiomes.Output()
 	if err != nil {
