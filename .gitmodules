@@ -1,0 +1,8 @@
+[submodule "cubiomes"]
+	path = cubiomes
+	url = git@github.com:Sife-ops/cubiomes.git
+	branch = experimental
+[submodule "go-mc"]
+	path = go-mc
+	url = git@github.com:Sife-ops/go-mc.git
+	branch = experimental
