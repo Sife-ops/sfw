@@ -8,6 +8,8 @@ require (
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/mattn/go-sqlite3 v1.14.20
 	github.com/opencontainers/image-spec v1.0.2
+	golang.org/x/time v0.5.0
+	nhooyr.io/websocket v1.8.10
 )
 
 require (
