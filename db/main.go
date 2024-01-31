@@ -1,8 +1,26 @@
-package main
+package db
 
 import (
+	"log"
 	"math"
+	"os"
+
+	"github.com/jmoiron/sqlx"
+	_ "github.com/mattn/go-sqlite3"
 )
+
+var Db *sqlx.DB
+
+func init() {
+	if _, e := os.Stat("./db.sqlite"); e != nil {
+		log.Fatalf("%v", e)
+	}
+	db, e := sqlx.Open("sqlite3", "./db.sqlite")
+	if e != nil {
+		log.Fatalf("%v", e)
+	}
+	Db = db
+}
 
 type GodSeed struct {
 	Id   int     `db:"id"`
@@ -36,11 +54,11 @@ type Coords struct {
 	Z int
 }
 
-func (g *GodSeed) RavineArea() (int, int, int, int) {
-	return *g.ShipwreckX - RavineOffsetNegative,
-		*g.ShipwreckZ - RavineOffsetNegative,
-		*g.ShipwreckX + RavineOffsetPositive,
-		*g.ShipwreckZ + RavineOffsetPositive
+func (g *GodSeed) RavineArea(offset int) (int, int, int, int) {
+	return *g.ShipwreckX - offset,
+		*g.ShipwreckZ - offset,
+		*g.ShipwreckX + offset,
+		*g.ShipwreckZ + offset
 }
 
 func (g *GodSeed) ShipwreckArea() (int, int, int, int) {
