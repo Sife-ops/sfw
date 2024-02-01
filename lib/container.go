@@ -74,7 +74,7 @@ func ContainerCreateMc(ctx context.Context, seed *string) (container.CreateRespo
 				"EULA=true",
 				"VERSION=1.16.1",
 				fmt.Sprintf("SEED=%s", *seed),
-				"MEMORY=2G",
+				"MEMORY=1G",
 			},
 		},
 		&container.HostConfig{
