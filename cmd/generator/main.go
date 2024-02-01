@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sfw/db"
 	"sfw/lib"
 	"strconv"
 	"time"
@@ -21,15 +20,15 @@ var FlagJobs = flag.Int("j", 2, "jobs")
 var FlagPrune = flag.Bool("p", false, "prune")
 
 var CubiomesDone chan struct{}
-var CubiomesOut chan db.GodSeed
+var CubiomesOut chan lib.GodSeed
 
 var WorldgenDone chan struct{}
-var WorldgenRecovering = make(chan db.GodSeed, 1)
+var WorldgenRecovering = make(chan lib.GodSeed, 1)
 
 func init() {
 	flag.Parse()
 	CubiomesDone = make(chan struct{}, *FlagJobs)
-	CubiomesOut = make(chan db.GodSeed, *FlagJobs)
+	CubiomesOut = make(chan lib.GodSeed, *FlagJobs)
 	WorldgenDone = make(chan struct{}, *FlagJobs)
 }
 
@@ -65,7 +64,7 @@ func main() {
 				}
 
 				// log.Printf("info saving cubiomes results %v", godSeed)
-				if _, err := db.Db.NamedExec(
+				if _, err := lib.Db.NamedExec(
 					`INSERT INTO seed 
 						(seed, spawn_x, spawn_z, bastion_x, bastion_z, shipwreck_x, shipwreck_z, fortress_x, fortress_z, finished_cubiomes)
 					VALUES 
@@ -138,19 +137,19 @@ func main() {
 }
 
 func Prune() {
-	if _, err := db.Db.Exec(
+	if _, err := lib.Db.Exec(
 		`DELETE FROM seed
 		WHERE iron_shipwrecks<1`,
 	); err != nil {
 		log.Fatalf("error %v", err)
 	}
-	if _, err := db.Db.Exec(
+	if _, err := lib.Db.Exec(
 		`DELETE FROM seed
 		WHERE ravine_chunks<5`,
 	); err != nil {
 		log.Fatalf("error %v", err)
 	}
-	if _, err := db.Db.Exec(
+	if _, err := lib.Db.Exec(
 		`DELETE FROM seed
 		WHERE ravine_proximity IS NULL`,
 	); err != nil {
