@@ -105,13 +105,34 @@ func run() error {
 					}
 				}()
 				break
+
 			case s.NState.Foo == "worldgen:output":
+				log.Printf("info saving worldgen output %v", s.NState.GodSeed)
+				if _, err := db.Db.NamedExec(
+					`UPDATE seed 
+						SET ravine_chunks=:ravine_chunks, iron_shipwrecks=:iron_shipwrecks, ravine_proximity=:ravine_proximity, avg_bastion_air=:avg_bastion_air, finished_worldgen=1 
+						WHERE seed=:seed`,
+					&s.NState.GodSeed,
+				); err != nil {
+					log.Fatalf("error saving worldgen output %v", err)
+				}
 				break
+
 			case s.NState.Foo == "cubiomes:output":
 				CubiomesOut <- s.NState.GodSeed
-				log.Printf("info recv cubiomes output, queued %d", len(CubiomesOut))
-				// todo insert
+				log.Printf("info saving cubiomes output, %d queued", len(CubiomesOut))
+				// log.Printf("info saving cubiomes results %v", godSeed)
+				if _, err := db.Db.NamedExec(
+					`INSERT INTO seed 
+						(seed, spawn_x, spawn_z, bastion_x, bastion_z, shipwreck_x, shipwreck_z, fortress_x, fortress_z, finished_cubiomes)
+					VALUES 
+						(:seed, :spawn_x, :spawn_z, :bastion_x, :bastion_z, :shipwreck_x, :shipwreck_z, :fortress_x, :fortress_z, :finished_cubiomes)`,
+					&s.NState.GodSeed,
+				); err != nil {
+					log.Fatalf("error saving cubiomes output %s", err.Error())
+				}
 				break
+
 			default:
 				log.Printf("info did nothing %s", s.NState.Foo)
 			}

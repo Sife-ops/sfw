@@ -17,27 +17,19 @@ import (
 	"github.com/Tnze/go-mc/save/region"
 )
 
-func Worldgen(job db.GodSeed, ravineProximity int) error {
-	// job := <-CubiomesOut
-
+func Worldgen(job db.GodSeed, ravineProximity int) (db.GodSeed, error) {
 	ctx := context.Background()
 
 	log.Printf("info killing old container")
 	if err := KillMcContainer(ctx); err != nil {
 		if !strings.Contains(err.Error(), "is not running") {
-			// log.Printf("error %v", err)
-			// WorldgenRecovering <- job
-			// return
-			return err
+			return job, err
 		}
 	}
 
 	log.Printf("info removing old container")
 	if err := RemoveMcContainer(ctx); err != nil {
-		// log.Printf("error %v", err)
-		// WorldgenRecovering <- job
-		// return
-		return err
+		return job, err
 	}
 
 	log.Printf("info deleting previous world folder")
@@ -46,18 +38,13 @@ func Worldgen(job db.GodSeed, ravineProximity int) error {
 	)
 	if outRmRfWorld, err := cmdRmRfWorld.Output(); err != nil {
 		log.Printf("error deleting world folder: %s %v", string(outRmRfWorld), err)
-		// WorldgenRecovering <- job
-		// return
-		return err
+		return job, err
 	}
 
 	log.Printf("info starting minecraft server container")
 	mc, _ := ContainerCreateMc(ctx, job.Seed)
 	if err := DockerClient.ContainerStart(context.TODO(), mc.ID, types.ContainerStartOptions{}); err != nil {
-		// log.Printf("error starting minecraft server container: %v", err)
-		// WorldgenRecovering <- job
-		// return
-		return err
+		return job, err
 	}
 
 	McStarted := make(chan error)
@@ -65,10 +52,7 @@ func Worldgen(job db.GodSeed, ravineProximity int) error {
 
 	log.Printf("info waiting for minecraft server to start")
 	if err := <-McStarted; err != nil {
-		// log.Printf("error waiting for minecraft server to start: %v", err)
-		// WorldgenRecovering <- job
-		// return
-		return err
+		return job, err
 	}
 
 	McStopped := make(chan error)
@@ -83,13 +67,7 @@ func Worldgen(job db.GodSeed, ravineProximity int) error {
 			ravineAreaX1, ravineAreaZ1, ravineAreaX2, ravineAreaZ2,
 		),
 	}); ec != 0 && err != nil {
-		// log.Printf(
-		// 	"error rcon forceloading overworld area %d %d %d %d failed: %v",
-		// 	ravineAreaX1, ravineAreaZ1, ravineAreaX2, ravineAreaZ2, err,
-		// )
-		// WorldgenRecovering <- job
-		// return
-		return err
+		return job, err
 	} else {
 		log.Printf(
 			"info rcon forceloaded overworld area %d %d %d %d",
@@ -107,33 +85,21 @@ func Worldgen(job db.GodSeed, ravineProximity int) error {
 				v.X*16, v.Z*16, (v.X*16)+15, (v.Z*16)+15,
 			),
 		}); ec != 0 && err != nil {
-			// log.Printf(
-			// 	"error rcon forceloading nether chunk %d %d failed: %v",
-			// 	err, v.X, v.Z,
-			// )
-			// WorldgenRecovering <- job
-			// return
-			return err
+			return job, err
 		}
 	}
 	log.Printf("info rcon forceloaded nether chunks: %v", forceloadedNetherChunks)
 
 	// stop server
 	if ec, err := McExec(ctx, mc.ID, []string{"rcon-cli", "stop"}); ec != 0 && err != nil {
-		// log.Printf("error rcon stopping server: %v", err)
-		// WorldgenRecovering <- job
-		// return
-		return err
+		return job, err
 	} else {
 		log.Printf("info rcon stopped server")
 	}
 
 	log.Printf("info waiting for minecraft server to stop")
 	if err := <-McStopped; err != nil {
-		// log.Printf("error %v", err)
-		// WorldgenRecovering <- job
-		// return
-		return err
+		return job, err
 	}
 
 	// overworld checks
@@ -199,10 +165,7 @@ func Worldgen(job db.GodSeed, ravineProximity int) error {
 			db.MustString(os.Getwd()), regionX, regionZ,
 		))
 		if err != nil {
-			// log.Printf("error skipping job: %v due to error: %v", job, err)
-			// WorldgenRecovering <- job
-			// return
-			return err
+			return job, err
 		}
 
 		for xC := x1 / 16; xC < (x2+1)/16; xC++ {
@@ -214,27 +177,18 @@ func Worldgen(job db.GodSeed, ravineProximity int) error {
 
 				data, err := region.ReadSector(db.ToSector(xC), db.ToSector(zC))
 				if err != nil {
-					// log.Printf("error %v", err)
-					// WorldgenRecovering <- job
-					// return
-					return err
+					return job, err
 				}
 
 				var chunkSave save.Chunk
 				err = chunkSave.Load(data)
 				if err != nil {
-					// log.Printf("error %v", err)
-					// WorldgenRecovering <- job
-					// return
-					return err
+					return job, err
 				}
 
 				chunkLevel, err := level.ChunkFromSave(&chunkSave)
 				if err != nil {
-					// log.Printf("error %v", err)
-					// WorldgenRecovering <- job
-					// return
-					return err
+					return job, err
 				}
 
 				obby, magma, lava := 0, 0, 0
@@ -301,18 +255,12 @@ func Worldgen(job db.GodSeed, ravineProximity int) error {
 			for zC := z1 / 16; zC < (z2+1)/16; zC++ {
 				data, err := region.ReadSector(db.ToSector(xC), db.ToSector(zC))
 				if err != nil {
-					// log.Printf("error %v", err)
-					// WorldgenRecovering <- job
-					// return
-					return err
+					return job, err
 				}
 				var chunkSave save.Chunk
 				err = chunkSave.Load(data)
 				if err != nil {
-					// log.Printf("error %v", err)
-					// WorldgenRecovering <- job
-					// return
-					return err
+					return job, err
 				}
 				if len(chunkSave.Level.Structures.Starts.Shipwreck.Children) < 1 {
 					continue
@@ -348,11 +296,7 @@ func Worldgen(job db.GodSeed, ravineProximity int) error {
 		db.MustString(os.Getwd()), netherChunkCoords[0].X, netherChunkCoords[0].Z,
 	))
 	if err != nil {
-		// log.Printf("warning skipping this seed: %v", err)
-		// log.Printf("%v", job)
-		// WorldgenRecovering <- job
-		// return
-		return err
+		return job, err
 	}
 
 	percentageOfAir := []int{}
@@ -362,27 +306,18 @@ func Worldgen(job db.GodSeed, ravineProximity int) error {
 		// log.Printf("info sector %d %d", ToSector(v.X), ToSector(v.Z))
 		data, err := region.ReadSector(db.ToSector(v.X), db.ToSector(v.Z))
 		if err != nil {
-			// log.Printf("error %v", err)
-			// WorldgenRecovering <- job
-			// return
-			return err
+			return job, err
 		}
 
 		var chunkSave save.Chunk
 		err = chunkSave.Load(data)
 		if err != nil {
-			// log.Printf("error %v", err)
-			// WorldgenRecovering <- job
-			// return
-			return err
+			return job, err
 		}
 
 		chunkLevel, err := level.ChunkFromSave(&chunkSave)
 		if err != nil {
-			// log.Printf("error %v", err)
-			// WorldgenRecovering <- job
-			// return
-			return err
+			return job, err
 		}
 
 		airBlocks := 0
@@ -415,6 +350,11 @@ func Worldgen(job db.GodSeed, ravineProximity int) error {
 
 	log.Printf("info saving seed")
 
+	job.RavineChunks = db.ToIntRef(len(magmaRavineChunks))
+	job.IronShipwrecks = db.ToIntRef(len(shipwrecksWithIron))
+	job.RavineProximity = db.ToIntRef(ravineProximity)
+	job.AvgBastionAir = db.ToIntRef(percentageOfAirAvg)
+
 	// if _, err := db.Db.Exec(
 	// 	`UPDATE seed SET ravine_chunks=$1, iron_shipwrecks=$2, ravine_proximity=$3, avg_bastion_air=$4, finished_worldgen=1 WHERE seed=$5`,
 	// 	len(magmaRavineChunks), len(shipwrecksWithIron), RavineProximity, percentageOfAirAvg, *job.Seed,
@@ -429,5 +369,5 @@ func Worldgen(job db.GodSeed, ravineProximity int) error {
 	// 	log.Printf("info finished worldgen job %d", len(WorldgenDone))
 	// }
 
-	return nil
+	return job, nil
 }

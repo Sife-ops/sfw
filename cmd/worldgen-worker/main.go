@@ -98,18 +98,19 @@ MainLoop:
 		case <-WorldgenC:
 			go func() {
 				for {
-					m := db.GodSeed{}
-					if err := wsjson.Read(context.TODO(), Connection, &m); err != nil {
+					cs := db.GodSeed{}
+					if err := wsjson.Read(context.TODO(), Connection, &cs); err != nil {
 						// log.Printf("warning decode %v", err)
 						ConnErrC <- err
 						WorldgenC <- struct{}{}
 						return
 					} else {
-						log.Printf("info decoded %v", m)
+						log.Printf("info decoded %v", cs)
 					}
 
 				RetryWorldgen:
-					if err := lib.Worldgen(m, 4); err != nil {
+					gs, err := lib.Worldgen(cs, 4)
+					if err != nil {
 						fmt.Printf(">>> ***** WORLDGEN IS DILATING *****\n")
 						fmt.Printf(">>> reason: %v\n", err)
 						fmt.Printf(">>> 1) quit or something\n")
@@ -120,6 +121,14 @@ MainLoop:
 						if err != nil || actionInt < 1 || actionInt > 1 {
 							goto RetryWorldgen
 						}
+					}
+
+					log.Printf("info THIS IS THE RESULT %v", gs)
+					if err := wsjson.Write(context.TODO(), Connection, &ws.NState{
+						Foo:     "worldgen:output",
+						GodSeed: gs,
+					}); err != nil {
+						ConnErrC <- err
 					}
 
 					IdleC <- struct{}{}
