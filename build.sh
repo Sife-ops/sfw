@@ -12,3 +12,9 @@ go build -o ./bin/generator \
 	./cmd/generator/cubiomes.go \
 	./cmd/generator/main.go \
 	./cmd/generator/worldgen.go
+
+go build -o ./bin/scheduler \
+	./cmd/scheduler/main.go
+
+go build -o ./bin/cubiomes-worker \
+	./cmd/cubiomes-worker/main.go
