@@ -54,11 +54,12 @@ type Coords struct {
 	Z int
 }
 
-func (g *GodSeed) RavineArea(offset int) (int, int, int, int) {
-	return *g.ShipwreckX - offset,
-		*g.ShipwreckZ - offset,
-		*g.ShipwreckX + offset,
-		*g.ShipwreckZ + offset
+func (g *GodSeed) RavineArea(block_offset int) (int, int, int, int) {
+	// todo sus calcs
+	return *g.ShipwreckX - block_offset,
+		*g.ShipwreckZ - block_offset,
+		*g.ShipwreckX + block_offset + 15,
+		*g.ShipwreckZ + block_offset + 15
 }
 
 func (g *GodSeed) ShipwreckArea() (int, int, int, int) {

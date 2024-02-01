@@ -18,3 +18,6 @@ go build -o ./bin/scheduler \
 
 go build -o ./bin/cubiomes-worker \
 	./cmd/cubiomes-worker/main.go
+
+go build -o ./bin/worldgen-worker \
+	./cmd/worldgen-worker/main.go

@@ -24,6 +24,16 @@ var OnMessage = make(chan ws.ConnNState, 10) // todo length idk
 var CubiomesOut = make(chan db.GodSeed, 20)
 
 func run() error {
+
+	// //
+	// CubiomesOut <- db.GodSeed{
+	// 	Id: 123,
+	// }
+	// CubiomesOut <- db.GodSeed{
+	// 	Id: 456,
+	// }
+	// //
+
 	l, err := net.Listen("tcp", "127.0.0.1:3100")
 	if err != nil {
 		return err
@@ -78,6 +88,7 @@ func run() error {
 					// todo confirm success
 					gs := <-CubiomesOut
 					log.Printf("info send cubiomes output, queued %d", len(CubiomesOut))
+					// todo use wsjson.Write
 					w, err := s.Conn.Writer(context.TODO(), websocket.MessageText)
 					if err != nil {
 						log.Printf("warning writer %v", err)
@@ -99,6 +110,7 @@ func run() error {
 			case s.NState.Foo == "cubiomes:output":
 				CubiomesOut <- s.NState.GodSeed
 				log.Printf("info recv cubiomes output, queued %d", len(CubiomesOut))
+				// todo insert
 				break
 			default:
 				log.Printf("info did nothing %s", s.NState.Foo)
@@ -106,19 +118,19 @@ func run() error {
 		}
 	}()
 
-	// todo internal state monitoring
-	go func() {
-		return // disabled
-		for {
-			<-time.After(1 * time.Second)
-			log.Printf("info cubiomes out %d", len(CubiomesOut))
-			continue
-			log.Printf("info Connections %v", Connections)
-			for k, v := range Connections {
-				log.Printf("conn %v state %v", &k, v)
-			}
-		}
-	}()
+	// // todo internal state monitoring
+	// go func() {
+	// 	// return // disabled
+	// 	for {
+	// 		<-time.After(1 * time.Second)
+	// 		log.Printf("info cubiomes out %d", len(CubiomesOut))
+	// 		continue
+	// 		log.Printf("info Connections %v", Connections)
+	// 		for k, v := range Connections {
+	// 			log.Printf("conn %v state %v", &k, v)
+	// 		}
+	// 	}
+	// }()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt)

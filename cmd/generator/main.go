@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"sfw/db"
+	"sfw/lib"
 	"strconv"
 	"time"
 )
@@ -32,6 +33,8 @@ func init() {
 	WorldgenDone = make(chan struct{}, *FlagJobs)
 }
 
+// todo delete old cubiomes/worldgen/container
+// todo move everything to /lib
 // todo html
 // todo ability to load unfinished seeds
 // todo c interop w/ cubiomes https://karthikkaranth.me/blog/calling-c-code-from-go/
@@ -52,7 +55,31 @@ func main() {
 	for i := 0; i < *FlagThreads; i++ {
 		go func() {
 			for len(CubiomesDone) < *FlagJobs {
-				Cubiomes()
+				gs, err := lib.Cubiomes()
+				if err != nil {
+					// 33 means seed was successfully filtered out
+					// if err.Error() != "exit status 33" {
+					// 	log.Fatalf("error %s", err.Error())
+					// }
+					continue
+				}
+
+				// log.Printf("info saving cubiomes results %v", godSeed)
+				if _, err := db.Db.NamedExec(
+					`INSERT INTO seed 
+						(seed, spawn_x, spawn_z, bastion_x, bastion_z, shipwreck_x, shipwreck_z, fortress_x, fortress_z, finished_cubiomes)
+					VALUES 
+						(:seed, :spawn_x, :spawn_z, :bastion_x, :bastion_z, :shipwreck_x, :shipwreck_z, :fortress_x, :fortress_z, :finished_cubiomes)`,
+					&gs,
+				); err != nil {
+					log.Fatalf("error saving cubiomes results %s", err.Error())
+				}
+
+				if len(CubiomesDone) < *FlagJobs {
+					CubiomesDone <- struct{}{}
+					CubiomesOut <- gs
+					log.Printf("info finished %d cubiomes jobs", len(CubiomesDone))
+				}
 			}
 		}()
 	}

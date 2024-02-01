@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sfw/db"
+	"sfw/lib"
 	"sfw/ws"
 	"time"
 
@@ -46,6 +46,7 @@ func run() error {
 	}
 
 	// todo use connErrC
+	// todo for threads?
 	go func() {
 		for {
 			if Idle {
@@ -53,18 +54,14 @@ func run() error {
 				continue
 			}
 
-			// todo invoke cubiomes
-			// todo invoke cubiomes
-			// todo invoke cubiomes
-			log.Printf("info SIMULATING CUBIOMES OUTPUT")
-			<-time.After(1 * time.Second)
+			gs, err := lib.Cubiomes()
+			if err != nil {
+				continue
+			}
 
 			if err := wsjson.Write(context.TODO(), Connection, &ws.NState{
-				Foo: "cubiomes:output",
-				GodSeed: db.GodSeed{
-					Id:   33,
-					Seed: db.ToStringRef("SIMULATED OUTPUT SEED"),
-				},
+				Foo:     "cubiomes:output",
+				GodSeed: gs,
 			}); err != nil {
 				// todo check queue length
 				connErrC <- err
