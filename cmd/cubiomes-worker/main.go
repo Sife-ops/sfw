@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"sfw/lib"
-	"sfw/ws"
 	"time"
 
 	"nhooyr.io/websocket"
@@ -59,7 +58,7 @@ func run() error {
 				continue
 			}
 
-			if err := wsjson.Write(context.TODO(), Connection, &ws.NState{
+			if err := wsjson.Write(context.TODO(), Connection, &lib.NState{
 				Foo:     "cubiomes:output",
 				GodSeed: gs,
 			}); err != nil {
@@ -90,7 +89,7 @@ func run() error {
 				goto Retry
 			}
 			Connection = conn
-			if err := wsjson.Write(context.TODO(), Connection, &ws.NState{
+			if err := wsjson.Write(context.TODO(), Connection, &lib.NState{
 				Foo: "cubiomes",
 			}); err != nil {
 				connErrC <- err

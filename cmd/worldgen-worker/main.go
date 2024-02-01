@@ -7,9 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sfw/db"
 	"sfw/lib"
-	"sfw/ws"
 	"strconv"
 	"time"
 
@@ -98,7 +96,7 @@ MainLoop:
 		case <-WorldgenC:
 			go func() {
 				for {
-					cs := db.GodSeed{}
+					cs := lib.GodSeed{}
 					if err := wsjson.Read(context.TODO(), Connection, &cs); err != nil {
 						// log.Printf("warning decode %v", err)
 						ConnErrC <- err
@@ -124,7 +122,7 @@ MainLoop:
 					}
 
 					log.Printf("info THIS IS THE RESULT %v", gs)
-					if err := wsjson.Write(context.TODO(), Connection, &ws.NState{
+					if err := wsjson.Write(context.TODO(), Connection, &lib.NState{
 						Foo:     "worldgen:output",
 						GodSeed: gs,
 					}); err != nil {
@@ -137,7 +135,7 @@ MainLoop:
 			IdleC <- struct{}{}
 
 		case <-IdleC:
-			if err := wsjson.Write(context.TODO(), Connection, &ws.NState{
+			if err := wsjson.Write(context.TODO(), Connection, &lib.NState{
 				Foo: "worldgen:idle",
 			}); err != nil {
 				ConnErrC <- err

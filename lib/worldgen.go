@@ -10,14 +10,14 @@ import (
 
 	"github.com/docker/docker/api/types"
 
-	"sfw/db"
+	// "sfw/db"
 
 	"github.com/Tnze/go-mc/level"
 	"github.com/Tnze/go-mc/save"
 	"github.com/Tnze/go-mc/save/region"
 )
 
-func Worldgen(job db.GodSeed, ravineProximity int) (db.GodSeed, error) {
+func Worldgen(job GodSeed, ravineProximity int) (GodSeed, error) {
 	ctx := context.Background()
 
 	log.Printf("info killing old container")
@@ -34,7 +34,7 @@ func Worldgen(job db.GodSeed, ravineProximity int) (db.GodSeed, error) {
 
 	log.Printf("info deleting previous world folder")
 	cmdRmRfWorld := exec.CommandContext(ctx, "rm", "-rf",
-		fmt.Sprintf("%s/tmp/mc/data/world", db.MustString(os.Getwd())),
+		fmt.Sprintf("%s/tmp/mc/data/world", MustString(os.Getwd())),
 	)
 	if outRmRfWorld, err := cmdRmRfWorld.Output(); err != nil {
 		log.Printf("error deleting world folder: %s %v", string(outRmRfWorld), err)
@@ -76,9 +76,9 @@ func Worldgen(job db.GodSeed, ravineProximity int) (db.GodSeed, error) {
 	}
 
 	// nether
-	forceloadedNetherChunks := []db.Coords{}
+	forceloadedNetherChunks := []Coords{}
 	for _, v := range job.NetherChunksToBastion() {
-		forceloadedNetherChunks = append(forceloadedNetherChunks, db.Coords{X: v.X, Z: v.Z})
+		forceloadedNetherChunks = append(forceloadedNetherChunks, Coords{X: v.X, Z: v.Z})
 		if ec, err := McExec(ctx, mc.ID, []string{"rcon-cli",
 			fmt.Sprintf(
 				"execute in minecraft:the_nether run forceload add %d %d %d %d",
@@ -105,7 +105,7 @@ func Worldgen(job db.GodSeed, ravineProximity int) (db.GodSeed, error) {
 	// overworld checks
 	// this part is RLLY bad
 	shipwreckAreaX1, shipwreckAreaZ1, shipwreckAreaX2, shipwreckAreaZ2 := job.ShipwreckArea()
-	magmaRavineChunks := []db.Coords{}
+	magmaRavineChunks := []Coords{}
 	shipwrecksWithIron := []string{}
 	for quadrant := 0; quadrant < 4; quadrant++ {
 		// todo swap x/z
@@ -162,7 +162,7 @@ func Worldgen(job db.GodSeed, ravineProximity int) (db.GodSeed, error) {
 	OpenRegion:
 		region, err := region.Open(fmt.Sprintf(
 			"%s/tmp/mc/data/world/region/r.%d.%d.mca",
-			db.MustString(os.Getwd()), regionX, regionZ,
+			MustString(os.Getwd()), regionX, regionZ,
 		))
 		if err != nil {
 			return job, err
@@ -175,7 +175,7 @@ func Worldgen(job db.GodSeed, ravineProximity int) (db.GodSeed, error) {
 				// 	log.Fatal("sector no existo")
 				// }
 
-				data, err := region.ReadSector(db.ToSector(xC), db.ToSector(zC))
+				data, err := region.ReadSector(ToSector(xC), ToSector(zC))
 				if err != nil {
 					return job, err
 				}
@@ -211,7 +211,7 @@ func Worldgen(job db.GodSeed, ravineProximity int) (db.GodSeed, error) {
 				}
 				// todo move to flags
 				if obby >= 30 && magma >= 10 && lava >= 30 {
-					magmaRavineChunks = append(magmaRavineChunks, db.Coords{X: xC, Z: zC})
+					magmaRavineChunks = append(magmaRavineChunks, Coords{X: xC, Z: zC})
 				}
 			}
 		}
@@ -253,7 +253,7 @@ func Worldgen(job db.GodSeed, ravineProximity int) (db.GodSeed, error) {
 
 		for xC := x1 / 16; xC < (x2+1)/16; xC++ {
 			for zC := z1 / 16; zC < (z2+1)/16; zC++ {
-				data, err := region.ReadSector(db.ToSector(xC), db.ToSector(zC))
+				data, err := region.ReadSector(ToSector(xC), ToSector(zC))
 				if err != nil {
 					return job, err
 				}
@@ -293,7 +293,7 @@ func Worldgen(job db.GodSeed, ravineProximity int) (db.GodSeed, error) {
 
 	region, err := region.Open(fmt.Sprintf(
 		"%s/tmp/mc/data/world/DIM-1/region/r.%d.%d.mca",
-		db.MustString(os.Getwd()), netherChunkCoords[0].X, netherChunkCoords[0].Z,
+		MustString(os.Getwd()), netherChunkCoords[0].X, netherChunkCoords[0].Z,
 	))
 	if err != nil {
 		return job, err
@@ -304,7 +304,7 @@ func Worldgen(job db.GodSeed, ravineProximity int) (db.GodSeed, error) {
 	for _, v := range netherChunkCoords {
 		// log.Printf("info chunk %d %d", (v.X), (v.Z))
 		// log.Printf("info sector %d %d", ToSector(v.X), ToSector(v.Z))
-		data, err := region.ReadSector(db.ToSector(v.X), db.ToSector(v.Z))
+		data, err := region.ReadSector(ToSector(v.X), ToSector(v.Z))
 		if err != nil {
 			return job, err
 		}
@@ -350,10 +350,10 @@ func Worldgen(job db.GodSeed, ravineProximity int) (db.GodSeed, error) {
 
 	log.Printf("info saving seed")
 
-	job.RavineChunks = db.ToIntRef(len(magmaRavineChunks))
-	job.IronShipwrecks = db.ToIntRef(len(shipwrecksWithIron))
-	job.RavineProximity = db.ToIntRef(ravineProximity)
-	job.AvgBastionAir = db.ToIntRef(percentageOfAirAvg)
+	job.RavineChunks = ToIntRef(len(magmaRavineChunks))
+	job.IronShipwrecks = ToIntRef(len(shipwrecksWithIron))
+	job.RavineProximity = ToIntRef(ravineProximity)
+	job.AvgBastionAir = ToIntRef(percentageOfAirAvg)
 
 	// if _, err := db.Db.Exec(
 	// 	`UPDATE seed SET ravine_chunks=$1, iron_shipwrecks=$2, ravine_proximity=$3, avg_bastion_air=$4, finished_worldgen=1 WHERE seed=$5`,

@@ -11,17 +11,16 @@ import (
 	"strings"
 	"time"
 
-	"sfw/db"
-	"sfw/ws"
+	"sfw/lib"
 
 	"nhooyr.io/websocket"
 )
 
 // ref https://github.com/nhooyr/websocket/blob/master/internal/examples/echo/server.go
 
-var Connections = map[*websocket.Conn]ws.NState{}
-var OnMessage = make(chan ws.ConnNState, 10) // todo length idk
-var CubiomesOut = make(chan db.GodSeed, 20)
+var Connections = map[*websocket.Conn]lib.NState{}
+var OnMessage = make(chan lib.ConnNState, 10) // todo length idk
+var CubiomesOut = make(chan lib.GodSeed, 20)
 
 func run() error {
 
@@ -108,10 +107,17 @@ func run() error {
 
 			case s.NState.Foo == "worldgen:output":
 				log.Printf("info saving worldgen output %v", s.NState.GodSeed)
-				if _, err := db.Db.NamedExec(
-					`UPDATE seed 
-						SET ravine_chunks=:ravine_chunks, iron_shipwrecks=:iron_shipwrecks, ravine_proximity=:ravine_proximity, avg_bastion_air=:avg_bastion_air, finished_worldgen=1 
-						WHERE seed=:seed`,
+				if _, err := lib.Db.NamedExec(
+					`UPDATE 
+						seed 
+					SET 
+						ravine_chunks=:ravine_chunks,
+						iron_shipwrecks=:iron_shipwrecks,
+						ravine_proximity=:ravine_proximity,
+						avg_bastion_air=:avg_bastion_air,
+						finished_worldgen=1 
+					WHERE 
+						seed=:seed`,
 					&s.NState.GodSeed,
 				); err != nil {
 					log.Fatalf("error saving worldgen output %v", err)
@@ -122,7 +128,7 @@ func run() error {
 				CubiomesOut <- s.NState.GodSeed
 				log.Printf("info saving cubiomes output, %d queued", len(CubiomesOut))
 				// log.Printf("info saving cubiomes results %v", godSeed)
-				if _, err := db.Db.NamedExec(
+				if _, err := lib.Db.NamedExec(
 					`INSERT INTO seed 
 						(seed, spawn_x, spawn_z, bastion_x, bastion_z, shipwreck_x, shipwreck_z, fortress_x, fortress_z, finished_cubiomes)
 					VALUES 
@@ -182,7 +188,7 @@ func (s fooServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Connections[c] = ws.NState{}
+	Connections[c] = lib.NState{}
 
 	for {
 		_, r, err := c.Reader(context.TODO())
@@ -193,14 +199,14 @@ func (s fooServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// log.Printf("info message type %v", typ)
 
 		dec := json.NewDecoder(r)
-		m := ws.NState{}
+		m := lib.NState{}
 		if err := dec.Decode(&m); err != nil {
 			log.Printf("warning decode %v", err)
 			break
 		}
 		// log.Printf("info state %v", m)
 		Connections[c] = m
-		OnMessage <- ws.ConnNState{Conn: c, NState: m}
+		OnMessage <- lib.ConnNState{Conn: c, NState: m}
 	}
 
 	// todo this may not be needed

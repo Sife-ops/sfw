@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sfw/db"
 	"strings"
 	"time"
 
@@ -82,7 +81,7 @@ func ContainerCreateMc(ctx context.Context, seed *string) (container.CreateRespo
 			Mounts: []mount.Mount{
 				{
 					Type:   mount.TypeBind,
-					Source: fmt.Sprintf("%s/tmp/mc/data", db.MustString(os.Getwd())),
+					Source: fmt.Sprintf("%s/tmp/mc/data", MustString(os.Getwd())),
 					Target: "/data",
 				},
 			},

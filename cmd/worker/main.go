@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sfw/db"
+	"sfw/lib"
 )
 
 var FlagPort = flag.Int("p", 3000, "port")
@@ -47,5 +47,5 @@ func generate(w http.ResponseWriter, r *http.Request) {
 	log.Println("lmao!")
 	log.Println(j)
 
-	db.Db.Get(`SELECT * from seed WHERE id=$1`, j.Id)
+	lib.Db.Get(`SELECT * from seed WHERE id=$1`, j.Id)
 }
