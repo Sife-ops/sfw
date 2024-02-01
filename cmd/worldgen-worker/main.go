@@ -46,30 +46,28 @@ func main() {
 }
 
 func run() error {
-MainLoop:
+	// MainLoop:
 	for {
-		select {
-		case err := <-ConnErrC:
-			log.Printf("warning connection error %v", err)
-			for {
+		if len(ConnErrC) > 0 {
+			log.Printf("warning connection error %v", <-ConnErrC)
+			log.Printf("info retrying in 3 seconds")
+			select {
+			case <-time.After(3 * time.Second):
 				log.Printf("info trying to reconnect")
-				if err := lib.Dial(flagServer); err == nil {
-					log.Printf("info connected!")
-					continue MainLoop
-				}
-
-				// ConnErrC <- err
-				log.Printf("info retrying in 3 seconds")
-				select {
-				// todo use ratelimiter?
-				case <-time.After(3 * time.Second):
+				if err := lib.Dial(flagServer); err != nil {
+					ConnErrC <- err
 					continue
-				case sig := <-SigC:
-					log.Printf("terminating: %v", sig)
-					goto Stop
+				} else {
+					log.Printf("info connected!")
+					continue
 				}
+			case sig := <-SigC:
+				log.Printf("terminating: %v", sig)
+				goto Stop
 			}
+		}
 
+		select {
 		case <-WorldgenC:
 			go func() {
 				for {
@@ -98,7 +96,7 @@ MainLoop:
 						}
 					}
 
-					log.Printf("info THIS IS THE RESULT %v", gs)
+					// log.Printf("info THIS IS THE RESULT %v", gs)
 					if err := wsjson.Write(context.TODO(), lib.Ws, &lib.NState{
 						Foo:     "worldgen:output",
 						GodSeed: gs,

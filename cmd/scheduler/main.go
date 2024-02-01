@@ -59,7 +59,7 @@ func run() error {
 			for k, v := range Connections {
 				if strings.Contains(v.Foo, "cubiomes") {
 					if err := k.Write(context.TODO(), websocket.MessageText, []byte(msg)); err != nil {
-						log.Printf("warning starting problem %v", err)
+						log.Printf("warning write %v", err)
 					}
 				}
 			}
@@ -76,8 +76,7 @@ func run() error {
 					gs := <-CubiomesOut
 					log.Printf("info send cubiomes output, queued %d", len(CubiomesOut))
 					if err := wsjson.Write(context.TODO(), s.Conn, gs); err != nil {
-						log.Printf("todo REEEE %v", err)
-						return
+						log.Printf("warning wsjson write %v", err)
 					}
 				}()
 				break
@@ -170,7 +169,7 @@ func (s fooServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for {
 		m := lib.NState{}
 		if err := wsjson.Read(context.TODO(), c, &m); err != nil {
-			log.Printf("info LOOOOOL %v", err)
+			log.Printf("warning wsjson read %v", err)
 			break
 		}
 		Connections[c] = m

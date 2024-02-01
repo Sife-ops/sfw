@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"log"
 	"os"
@@ -18,9 +19,9 @@ var flagThreads = flag.Int("t", 1, "threads")
 
 var idle = true
 var connErrC = make(chan error, 1)
+var cubiomesC = make(chan error, 1) // todo use err?
+var idleC = make(chan error, 1)
 var sigC = make(chan os.Signal, 1)
-var cubiomesC = make(chan struct{}, 1) // todo use err?
-var idleC = make(chan struct{}, 1)
 var threadsC chan struct{}
 
 func init() {
@@ -34,8 +35,8 @@ func init() {
 		connErrC <- err
 	}
 
-	cubiomesC <- struct{}{}
-	idleC <- struct{}{}
+	cubiomesC <- errors.New("startup")
+	idleC <- errors.New("startup")
 }
 
 func main() {
@@ -95,7 +96,7 @@ func run() error {
 							// todo check queue length
 							<-threadsC
 							connErrC <- err
-							cubiomesC <- struct{}{}
+							cubiomesC <- err
 							idle = true
 							return
 						}
@@ -109,7 +110,7 @@ func run() error {
 					_, b, err := lib.Ws.Read(context.TODO())
 					if err != nil {
 						connErrC <- err
-						idleC <- struct{}{}
+						idleC <- err
 						return
 					}
 					switch {
