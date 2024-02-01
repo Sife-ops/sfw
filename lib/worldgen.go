@@ -10,8 +10,6 @@ import (
 
 	"github.com/docker/docker/api/types"
 
-	// "sfw/db"
-
 	"github.com/Tnze/go-mc/level"
 	"github.com/Tnze/go-mc/save"
 	"github.com/Tnze/go-mc/save/region"
@@ -354,20 +352,6 @@ func Worldgen(job GodSeed, ravineProximity int) (GodSeed, error) {
 	job.IronShipwrecks = ToIntRef(len(shipwrecksWithIron))
 	job.RavineProximity = ToIntRef(ravineProximity)
 	job.AvgBastionAir = ToIntRef(percentageOfAirAvg)
-
-	// if _, err := db.Db.Exec(
-	// 	`UPDATE seed SET ravine_chunks=$1, iron_shipwrecks=$2, ravine_proximity=$3, avg_bastion_air=$4, finished_worldgen=1 WHERE seed=$5`,
-	// 	len(magmaRavineChunks), len(shipwrecksWithIron), RavineProximity, percentageOfAirAvg, *job.Seed,
-	// ); err != nil {
-	// 	log.Printf("error %v", err)
-	// 	WorldgenRecovering <- job
-	// 	return
-	// }
-
-	// if len(WorldgenDone) < *FlagJobs {
-	// 	WorldgenDone <- struct{}{}
-	// 	log.Printf("info finished worldgen job %d", len(WorldgenDone))
-	// }
 
 	return job, nil
 }

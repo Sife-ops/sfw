@@ -127,7 +127,31 @@ func main() {
 			}
 
 		default:
-			Worldgen()
+			gs, err := lib.Worldgen(<-CubiomesOut, RavineProximity)
+			if err != nil {
+				log.Printf("info recovering from %v", err)
+				WorldgenRecovering <- gs
+				continue
+			}
+
+			if _, err := lib.Db.Exec(
+				`UPDATE 
+					seed 
+				SET 
+					ravine_chunks=$1,
+					iron_shipwrecks=$2,
+					ravine_proximity=$3,
+					avg_bastion_air=$4,
+					finished_worldgen=1 
+				WHERE 
+					seed=$5`,
+				gs.RavineChunks, gs.IronShipwrecks, RavineProximity, gs.AvgBastionAir, gs.Seed,
+			); err != nil {
+				log.Printf("error %v", err)
+				WorldgenRecovering <- gs
+				return
+			}
+
 		}
 	}
 
