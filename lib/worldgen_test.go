@@ -22,6 +22,7 @@ func Test_Worldgen(t *testing.T) {
 		// 2024-02-01 14:47:43
 	}, 4)
 	if err != nil {
+		t.Logf("error %v", err)
 		t.FailNow()
 	}
 
