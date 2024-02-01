@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -14,120 +13,120 @@ import (
 	"nhooyr.io/websocket/wsjson"
 )
 
-var Idle = true
+var flagServer = flag.String("s", "127.0.0.1:3100", "server addr")
+var flagThreads = flag.Int("t", 1, "threads")
 
-var FlagServer = flag.String("s", "127.0.0.1:3100", "server addr")
-
-var Connection *websocket.Conn
+var idle = true
+var connErrC = make(chan error, 1)
+var sigC = make(chan os.Signal, 1)
+var cubiomesC = make(chan struct{}, 1) // todo use err?
+var idleC = make(chan struct{}, 1)
+var threadsC chan struct{}
 
 func init() {
-	if err := initE(); err != nil {
-		log.Fatalf("error %v", err)
-	}
-}
-
-func initE() error {
 	flag.Parse()
-	return nil
+	threadsC = make(chan struct{}, *flagThreads)
+
+	signal.Notify(sigC, os.Interrupt)
+
+	err := lib.Dial(flagServer)
+	if err != nil {
+		connErrC <- err
+	}
+
+	cubiomesC <- struct{}{}
+	idleC <- struct{}{}
 }
 
 func main() {
 	if err := run(); err != nil {
 		log.Fatalf("error %v", err)
 	}
-	defer Connection.CloseNow()
+	defer lib.Ws.CloseNow() // todo nil ref
 }
 
 func run() error {
-	connErrC := make(chan error, 1)
-	if Connection == nil {
-		connErrC <- fmt.Errorf("error connection nil")
-	}
-
-	// todo use connErrC
-	// todo for threads?
-	go func() {
-		for {
-			if Idle {
-				<-time.After(1 * time.Second)
-				continue
-			}
-
-			gs, err := lib.Cubiomes()
-			if err != nil {
-				continue
-			}
-
-			if err := wsjson.Write(context.TODO(), Connection, &lib.NState{
-				Foo:     "cubiomes:output",
-				GodSeed: gs,
-			}); err != nil {
-				// todo check queue length
-				connErrC <- err
-				Idle = true
-			}
-		}
-	}()
-
-	sigC := make(chan os.Signal, 1)
-	signal.Notify(sigC, os.Interrupt)
-
 	for {
-		select {
-		case err := <-connErrC:
-			log.Printf("warning connection error %v", err)
-			Idle = true
-
-			// todo move to ws?
-			conn, _, err_ := websocket.Dial(
-				context.TODO(),
-				fmt.Sprintf("ws://%s", *FlagServer),
-				nil,
-			)
-			if err_ != nil {
-				connErrC <- err_
-				goto Retry
-			}
-			Connection = conn
-			if err := wsjson.Write(context.TODO(), Connection, &lib.NState{
-				Foo: "cubiomes",
-			}); err != nil {
-				connErrC <- err
-				goto Retry
-			}
-			goto Connected
-
-		Retry:
+		if len(connErrC) > 0 {
+			log.Printf("warning connection error %v", <-connErrC)
 			log.Printf("info retrying in 3 seconds")
 			select {
-			// todo use ratelimiter?
 			case <-time.After(3 * time.Second):
-				continue
+				log.Printf("info trying to reconnect")
+				if err := lib.Dial(flagServer); err != nil {
+					connErrC <- err
+					continue
+				} else {
+					log.Printf("info connected!")
+					continue
+				}
 			case sig := <-sigC:
 				log.Printf("terminating: %v", sig)
 				goto Stop
 			}
+		}
 
-		Connected:
-			log.Printf("info connected!")
-			// todo: context cancel
+		select {
+		case <-cubiomesC:
+			for len(threadsC) < *flagThreads {
+				go func() {
+					threadsC <- struct{}{}
+					for {
+						if idle {
+							<-time.After(1 * time.Second)
+							continue
+						}
+
+						var gs lib.GodSeed
+						for {
+							gs_, err := lib.Cubiomes()
+							// todo check exit code
+							if err != nil {
+								continue
+							}
+							gs = gs_
+							break
+						}
+
+						if err := wsjson.Write(context.TODO(), lib.Ws, &lib.NState{
+							Foo:     "cubiomes:output",
+							GodSeed: gs,
+						}); err != nil {
+							// todo check queue length
+							<-threadsC
+							connErrC <- err
+							cubiomesC <- struct{}{}
+							idle = true
+							return
+						}
+					}
+				}()
+			}
+
+		case <-idleC:
 			go func() {
 				for {
-					_, b, err := Connection.Read(context.TODO())
+					_, b, err := lib.Ws.Read(context.TODO())
 					if err != nil {
 						connErrC <- err
+						idleC <- struct{}{}
 						return
 					}
 					switch {
-					case string(b) == "start" && Idle:
+					case string(b) == "start" && idle:
 						log.Printf("info changing state to active")
-						Idle = false
-					case string(b) == "stop" && !Idle:
+						idle = false
+					case string(b) == "stop" && !idle:
 						log.Printf("info changing state to idle")
-						Idle = true
+						idle = true
 					}
 				}
 			}()
+			if err := wsjson.Write(context.TODO(), lib.Ws, &lib.NState{
+				Foo: "cubiomes",
+			}); err != nil {
+				connErrC <- err
+			}
 
 		case sig := <-sigC:
 			log.Printf("terminating: %v", sig)
@@ -139,5 +138,5 @@ Stop:
 	// ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	// defer cancel()
 
-	return Connection.Close(websocket.StatusNormalClosure, "")
+	return lib.Ws.Close(websocket.StatusNormalClosure, "")
 }

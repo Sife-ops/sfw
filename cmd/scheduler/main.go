@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"sfw/lib"
 
 	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 )
 
 // ref https://github.com/nhooyr/websocket/blob/master/internal/examples/echo/server.go
@@ -23,16 +23,6 @@ var OnMessage = make(chan lib.ConnNState, 10) // todo length idk
 var CubiomesOut = make(chan lib.GodSeed, 20)
 
 func run() error {
-
-	// //
-	// CubiomesOut <- db.GodSeed{
-	// 	Id: 123,
-	// }
-	// CubiomesOut <- db.GodSeed{
-	// 	Id: 456,
-	// }
-	// //
-
 	l, err := net.Listen("tcp", "127.0.0.1:3100")
 	if err != nil {
 		return err
@@ -76,30 +66,17 @@ func run() error {
 		}
 	}()
 
-	// todo on update
 	go func() {
 		for {
 			s := <-OnMessage
-			// log.Printf("info update %v", s)
 			switch {
 			case s.NState.Foo == "worldgen:idle":
 				go func() {
 					// todo confirm success
 					gs := <-CubiomesOut
 					log.Printf("info send cubiomes output, queued %d", len(CubiomesOut))
-					// todo use wsjson.Write
-					w, err := s.Conn.Writer(context.TODO(), websocket.MessageText)
-					if err != nil {
-						log.Printf("warning writer %v", err)
-						return
-					}
-					enc := json.NewEncoder(w)
-					if err := enc.Encode(gs); err != nil {
-						log.Printf("warning encode %v", err)
-						return
-					}
-					if err := w.Close(); err != nil {
-						log.Printf("warning writer close %v", err)
+					if err := wsjson.Write(context.TODO(), s.Conn, gs); err != nil {
+						log.Printf("todo REEEE %v", err)
 						return
 					}
 				}()
@@ -191,20 +168,11 @@ func (s fooServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	Connections[c] = lib.NState{}
 
 	for {
-		_, r, err := c.Reader(context.TODO())
-		if err != nil {
-			log.Printf("warning reader sumting wong! %v", err)
-			break
-		}
-		// log.Printf("info message type %v", typ)
-
-		dec := json.NewDecoder(r)
 		m := lib.NState{}
-		if err := dec.Decode(&m); err != nil {
-			log.Printf("warning decode %v", err)
+		if err := wsjson.Read(context.TODO(), c, &m); err != nil {
+			log.Printf("info LOOOOOL %v", err)
 			break
 		}
-		// log.Printf("info state %v", m)
 		Connections[c] = m
 		OnMessage <- lib.ConnNState{Conn: c, NState: m}
 	}

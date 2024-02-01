@@ -21,54 +21,31 @@ var IdleC = make(chan struct{}, 1)
 var ConnErrC = make(chan error, 1)
 var SigC = make(chan os.Signal, 1)
 
-var FlagServer = flag.String("s", "127.0.0.1:3100", "server addr")
-var Connection *websocket.Conn
+var flagServer = flag.String("s", "127.0.0.1:3100", "server addr")
 
 func init() {
-	if err := initE(); err != nil {
-		log.Fatalf("error %v", err)
-	}
-}
-
-func initE() error {
 	flag.Parse()
 
 	signal.Notify(SigC, os.Interrupt)
 
-	err := ConnF()
+	err := lib.Dial(flagServer)
 	if err != nil {
 		// return err
-		// log.Printf("warning connection failed %v", err)
+		log.Printf("warning connection failed %v", err)
 		ConnErrC <- err
 	}
-	WorldgenC <- struct{}{}
 
-	return nil
+	WorldgenC <- struct{}{}
 }
 
 func main() {
 	if err := run(); err != nil {
 		log.Fatalf("error %v", err)
 	}
-	defer Connection.CloseNow()
-}
-
-// todo move to ws
-func ConnF() error {
-	conn, _, err_ := websocket.Dial(
-		context.TODO(),
-		fmt.Sprintf("ws://%s", *FlagServer),
-		nil,
-	)
-	if err_ != nil {
-		return err_
-	}
-	Connection = conn
-	return nil
+	defer lib.Ws.CloseNow()
 }
 
 func run() error {
-	log.Printf("1")
 MainLoop:
 	for {
 		select {
@@ -76,7 +53,7 @@ MainLoop:
 			log.Printf("warning connection error %v", err)
 			for {
 				log.Printf("info trying to reconnect")
-				if err := ConnF(); err == nil {
+				if err := lib.Dial(flagServer); err == nil {
 					log.Printf("info connected!")
 					continue MainLoop
 				}
@@ -97,7 +74,7 @@ MainLoop:
 			go func() {
 				for {
 					cs := lib.GodSeed{}
-					if err := wsjson.Read(context.TODO(), Connection, &cs); err != nil {
+					if err := wsjson.Read(context.TODO(), lib.Ws, &cs); err != nil {
 						// log.Printf("warning decode %v", err)
 						ConnErrC <- err
 						WorldgenC <- struct{}{}
@@ -122,7 +99,7 @@ MainLoop:
 					}
 
 					log.Printf("info THIS IS THE RESULT %v", gs)
-					if err := wsjson.Write(context.TODO(), Connection, &lib.NState{
+					if err := wsjson.Write(context.TODO(), lib.Ws, &lib.NState{
 						Foo:     "worldgen:output",
 						GodSeed: gs,
 					}); err != nil {
@@ -135,7 +112,7 @@ MainLoop:
 			IdleC <- struct{}{}
 
 		case <-IdleC:
-			if err := wsjson.Write(context.TODO(), Connection, &lib.NState{
+			if err := wsjson.Write(context.TODO(), lib.Ws, &lib.NState{
 				Foo: "worldgen:idle",
 			}); err != nil {
 				ConnErrC <- err
@@ -151,5 +128,5 @@ Stop:
 	// ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	// defer cancel()
 
-	return Connection.Close(websocket.StatusNormalClosure, "")
+	return lib.Ws.Close(websocket.StatusNormalClosure, "")
 }

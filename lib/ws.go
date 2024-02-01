@@ -1,6 +1,9 @@
 package lib
 
 import (
+	"context"
+	"fmt"
+
 	"nhooyr.io/websocket"
 )
 
@@ -13,4 +16,19 @@ type NState struct {
 type ConnNState struct {
 	Conn   *websocket.Conn
 	NState NState
+}
+
+var Ws *websocket.Conn
+
+func Dial(s *string) error {
+	conn, _, err_ := websocket.Dial(
+		context.TODO(),
+		fmt.Sprintf("ws://%s", *s),
+		nil,
+	)
+	if err_ != nil {
+		return err_
+	}
+	Ws = conn
+	return nil
 }

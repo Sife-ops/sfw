@@ -29,7 +29,7 @@ type GodSeed struct {
 	RavineProximity *int `db:"ravine_proximity"`
 	RavineChunks    *int `db:"ravine_chunks"`
 	IronShipwrecks  *int `db:"iron_shipwrecks"`
-	AvgBastionAir   *int `db:"abg_bastion_air"`
+	AvgBastionAir   *int `db:"avg_bastion_air"`
 
 	Played *int `db:"played"`
 	Rating *int `db:"rating"`
