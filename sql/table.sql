@@ -1,13 +1,14 @@
 CREATE TABLE seed (
     id INTEGER PRIMARY KEY,
-    seed TEXT NOT NULL UNIQUE,
-    ravine_chunks INTEGER NOT NULL,
-    iron_shipwrecks INTEGER NOT NULL,
-    avg_bastion_air INTEGER NOT NULL,
-    avg_fortress_air INTEGER NOT NULL,
-    played INTEGER DEFAULT 0 NOT NULL,
+    seed TEXT,
+
+    ravine_proximity INTEGER,
+    ravine_chunks INTEGER,
+    iron_shipwrecks INTEGER,
+    avg_bastion_air INTEGER,
+    -- avg_fortress_air INTEGER,
+    played INTEGER DEFAULT 0,
     rating INTEGER,
-    notes TEXT,
 
 	spawn_x INTEGER,
 	spawn_z INTEGER,
