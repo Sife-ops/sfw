@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"flag"
 	"log"
 	"net"
 	"net/http"
@@ -17,12 +19,179 @@ import (
 )
 
 // ref https://github.com/nhooyr/websocket/blob/master/internal/examples/echo/server.go
+// ref https://www.developer.com/languages/intro-socket-programming-go/
 
 var Connections = map[*websocket.Conn]lib.NState{}
+var cubiomesOut = make(chan lib.GodSeed, 20)
 var OnMessage = make(chan lib.ConnNState, 10) // todo length idk
-var CubiomesOut = make(chan lib.GodSeed, 20)
+
+var onUpdate = make(chan map[net.Conn]lib.SockState, 10) // todo length idk
+var flagServer = flag.String("s", "0.0.0.0:3100", "server addr")
+var sockErrC = make(chan error)
+var socks = map[net.Conn]lib.SockState{}
+var sigC = make(chan os.Signal, 1)
+
+func init() {
+	flag.Parse()
+	signal.Notify(sigC, os.Interrupt)
+}
+
+func main() {
+	if err := run2(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run2() error {
+	log.Printf("info listening on %s", *flagServer)
+	listener, err := net.Listen("tcp", *flagServer)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		for {
+			sockC := make(chan net.Conn)
+			go func() {
+				sockerino, err := listener.Accept()
+				if err != nil {
+					sockErrC <- err
+					return
+				}
+				log.Printf("info new socket connection %v", sockerino)
+				sockC <- sockerino
+			}()
+
+			select {
+			case sockerino := <-sockC:
+				socks[sockerino] = lib.SockState{F0: "connected"}
+				log.Printf("info socket %v state %v", sockerino, socks[sockerino])
+				onUpdate <- map[net.Conn]lib.SockState{sockerino: socks[sockerino]}
+				go rl(ctx, sockerino)
+				break
+
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			// todo how to stop dilating
+			case <-time.After(500 * time.Millisecond):
+				var msg string
+				switch {
+				case len(cubiomesOut) < 6:
+					msg = "start"
+					break
+				case len(cubiomesOut) > 10:
+					msg = "stop"
+					break
+				default:
+					continue
+				}
+				for k, v := range socks {
+					if strings.Contains(v.F0, "cubiomes") {
+						if _, err := k.Write([]byte(msg)); err != nil {
+							sockErrC <- err
+							delete(socks, k)
+							continue
+						}
+					}
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case update := <-onUpdate:
+				log.Printf("info onUpdate %v", update)
+				for k, v := range update {
+					log.Printf("info onUpdate connection %v", k)
+					log.Printf("info onUpdate state %v", v)
+					if v.F0 == "cubiomes:output" {
+						cubiomesOut <- v.F1
+						log.Printf("info onUpdate got cubiomes output %d: %+v", len(cubiomesOut), v.F1)
+					}
+				}
+				break
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	for {
+		select {
+		case sockErr := <-sockErrC:
+			log.Printf("warning socket error %v", sockErr)
+			break
+		// case <-time.After(1 * time.Second):
+		// 	log.Printf("info debug socks %v", socks)
+		case sig := <-sigC:
+			log.Printf("terminating: %v", sig)
+			goto End
+		}
+	}
+
+End:
+	cancel()
+	if err := listener.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func rl(ctx context.Context, s net.Conn) {
+	for {
+		readC := make(chan struct {
+			b    []byte
+			mLen int
+		})
+		go func() {
+			b := make([]byte, 1024)
+			mLen, err := s.Read(b)
+			if err != nil {
+				sockErrC <- err
+				delete(socks, s)
+				return
+			}
+			readC <- struct {
+				b    []byte
+				mLen int
+			}{b, mLen}
+		}()
+
+		select {
+		case r := <-readC:
+			j := lib.SockState{}
+			if err := json.Unmarshal(r.b[:r.mLen], &j); err != nil {
+				sockErrC <- err
+				continue
+			}
+			log.Printf("info got msg from %v: %s", s.RemoteAddr(), string(r.b[:r.mLen]))
+			socks[s] = j
+			log.Printf("info socket %v state %v", s, socks[s])
+			onUpdate <- map[net.Conn]lib.SockState{s: socks[s]}
+			break
+
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+// todo finish migrating this
 
 func run() error {
+	// todo use 0.0.0.0
 	l, err := net.Listen("tcp", "127.0.0.1:3100")
 	if err != nil {
 		return err
@@ -46,10 +215,10 @@ func run() error {
 			<-time.After(500 * time.Millisecond)
 			var msg string
 			switch {
-			case len(CubiomesOut) < 6:
+			case len(cubiomesOut) < 6:
 				msg = "start"
 				break
-			case len(CubiomesOut) > 10:
+			case len(cubiomesOut) > 10:
 				msg = "stop"
 				break
 			default:
@@ -73,8 +242,8 @@ func run() error {
 			case s.NState.Foo == "worldgen:idle":
 				go func() {
 					// todo confirm success
-					gs := <-CubiomesOut
-					log.Printf("info send cubiomes output, queued %d", len(CubiomesOut))
+					gs := <-cubiomesOut
+					log.Printf("info send cubiomes output, queued %d", len(cubiomesOut))
 					if err := wsjson.Write(context.TODO(), s.Conn, gs); err != nil {
 						log.Printf("warning wsjson write %v", err)
 					}
@@ -101,8 +270,8 @@ func run() error {
 				break
 
 			case s.NState.Foo == "cubiomes:output":
-				CubiomesOut <- s.NState.GodSeed
-				log.Printf("info saving cubiomes output, %d queued", len(CubiomesOut))
+				cubiomesOut <- s.NState.GodSeed
+				log.Printf("info saving cubiomes output, %d queued", len(cubiomesOut))
 				// log.Printf("info saving cubiomes results %v", godSeed)
 				if _, err := lib.Db.NamedExec(
 					`INSERT INTO seed 
@@ -126,7 +295,7 @@ func run() error {
 	// 	// return // disabled
 	// 	for {
 	// 		<-time.After(1 * time.Second)
-	// 		log.Printf("info cubiomes out %d", len(CubiomesOut))
+	// 		log.Printf("info cubiomes out %d", len(cubiomesOut))
 	// 		continue
 	// 		log.Printf("info Connections %v", Connections)
 	// 		for k, v := range Connections {
@@ -184,10 +353,4 @@ func (s fooServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("info deleting connection %v", &c)
 	delete(Connections, c)
-}
-
-func main() {
-	if err := run(); err != nil {
-		log.Fatal(err)
-	}
 }

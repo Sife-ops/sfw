@@ -1,7 +1,7 @@
 all: sch cw wg
 
 db:
-	sqlite3 db_.sqlite < ./sql/table.sql
+	# sqlite3 db_.sqlite < ./sql/table.sql
 
 sch: db
 	go build -o ./bin/scheduler ./cmd/scheduler/main.go

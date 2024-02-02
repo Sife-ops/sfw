@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"log"
@@ -9,19 +10,16 @@ import (
 	"os/signal"
 	"sfw/lib"
 	"time"
-
-	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
 )
 
+var sockErrC = make(chan error, 1)
+var cubiomesC = make(chan error, 1)
 var flagServer = flag.String("s", "127.0.0.1:3100", "server addr")
 var flagThreads = flag.Int("t", 1, "threads")
-
 var idle = true
-var connErrC = make(chan error, 1)
-var cubiomesC = make(chan error, 1) // todo use err?
 var idleC = make(chan error, 1)
 var sigC = make(chan os.Signal, 1)
+var sockClient = lib.SockClient{}
 var threadsC chan struct{}
 
 func init() {
@@ -30,9 +28,9 @@ func init() {
 
 	signal.Notify(sigC, os.Interrupt)
 
-	err := lib.Dial(flagServer)
+	err := sockClient.Connect(*flagServer)
 	if err != nil {
-		connErrC <- err
+		sockErrC <- err
 	}
 
 	cubiomesC <- errors.New("startup")
@@ -43,19 +41,26 @@ func main() {
 	if err := run(); err != nil {
 		log.Fatalf("error %v", err)
 	}
-	defer lib.Ws.CloseNow() // todo nil ref
 }
 
 func run() error {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	for {
-		if len(connErrC) > 0 {
-			log.Printf("warning connection error %v", <-connErrC)
+		if len(sockErrC) > 0 {
+			// for len(sockErrC) > 0 {
+			log.Printf("warning connection error %v", <-sockErrC)
+			// }
 			log.Printf("info retrying in 3 seconds")
 			select {
 			case <-time.After(3 * time.Second):
 				log.Printf("info trying to reconnect")
-				if err := lib.Dial(flagServer); err != nil {
-					connErrC <- err
+				if err := sockClient.Connect(*flagServer); err != nil {
+					// where are more errors coming from...
+					for len(sockErrC) > 0 {
+						log.Printf("info REEEEEE %v", <-sockErrC)
+					}
+					sockErrC <- err
 					continue
 				} else {
 					log.Printf("info connected!")
@@ -63,7 +68,7 @@ func run() error {
 				}
 			case sig := <-sigC:
 				log.Printf("terminating: %v", sig)
-				goto Stop
+				goto End
 			}
 		}
 
@@ -72,33 +77,46 @@ func run() error {
 			for len(threadsC) < *flagThreads {
 				go func() {
 					threadsC <- struct{}{}
+					gsC := make(chan lib.GodSeed, 1)
 					for {
 						if idle {
 							<-time.After(1 * time.Second)
 							continue
 						}
 
-						var gs lib.GodSeed
-						for {
-							gs_, err := lib.Cubiomes()
+						select {
+						case <-ctx.Done():
+							return
+
+						case gs := <-gsC:
+							m := lib.SockState{
+								F0: "cubiomes:output",
+								F1: gs,
+							}
+							j, err := json.Marshal(m)
+							if err != nil {
+								goto EndError
+							}
+							_, err = sockClient.Conn.Write(j)
+							if err != nil {
+								goto EndError
+							}
+							continue
+
+						EndError:
+							<-threadsC
+							sockErrC <- err
+							cubiomesC <- err
+							// idle = true
+							return
+
+						default:
+							gs, err := lib.Cubiomes()
 							// todo check exit code
 							if err != nil {
 								continue
 							}
-							gs = gs_
-							break
-						}
-
-						if err := wsjson.Write(context.TODO(), lib.Ws, &lib.NState{
-							Foo:     "cubiomes:output",
-							GodSeed: gs,
-						}); err != nil {
-							// todo check queue length
-							<-threadsC
-							connErrC <- err
-							cubiomesC <- err
-							idle = true
-							return
+							gsC <- gs
 						}
 					}
 				}()
@@ -106,38 +124,62 @@ func run() error {
 
 		case <-idleC:
 			go func() {
+				m := lib.SockState{
+					F0: "cubiomes",
+				}
+				j, err := json.Marshal(m)
+				if err != nil {
+					sockErrC <- err
+					idleC <- err
+					return
+				}
+				sockClient.Conn.Write(j)
+
 				for {
-					_, b, err := lib.Ws.Read(context.TODO())
-					if err != nil {
-						connErrC <- err
-						idleC <- err
+					readC := make(chan struct {
+						b    []byte
+						mLen int
+					})
+					go func() {
+						b := make([]byte, 1024)
+						mLen, err := sockClient.Conn.Read(b)
+						if err != nil {
+							sockErrC <- err
+							idleC <- err
+							return
+						}
+						readC <- struct {
+							b    []byte
+							mLen int
+						}{b, mLen}
+					}()
+
+					select {
+					case <-ctx.Done():
 						return
-					}
-					switch {
-					case string(b) == "start" && idle:
-						log.Printf("info changing state to active")
-						idle = false
-					case string(b) == "stop" && !idle:
-						log.Printf("info changing state to idle")
-						idle = true
+					case r := <-readC:
+						msg := string(r.b[:r.mLen])
+						log.Printf("info got msg from %v: %s", sockClient.Conn.RemoteAddr(), msg)
+						switch {
+						case msg == "start" && idle:
+							log.Printf("info changing state to active")
+							idle = false
+						case msg == "stop" && !idle:
+							log.Printf("info changing state to idle")
+							idle = true
+						}
 					}
 				}
 			}()
-			if err := wsjson.Write(context.TODO(), lib.Ws, &lib.NState{
-				Foo: "cubiomes",
-			}); err != nil {
-				connErrC <- err
-			}
+			break
 
 		case sig := <-sigC:
 			log.Printf("terminating: %v", sig)
-			goto Stop
+			goto End
 		}
 	}
 
-Stop:
-	// ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	// defer cancel()
-
-	return lib.Ws.Close(websocket.StatusNormalClosure, "")
+End:
+	cancel()
+	return sockClient.Conn.Close()
 }

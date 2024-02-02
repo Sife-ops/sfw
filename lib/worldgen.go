@@ -40,7 +40,10 @@ func Worldgen(job GodSeed, ravineProximity int) (GodSeed, error) {
 	}
 
 	log.Printf("info starting minecraft server container")
-	mc, _ := ContainerCreateMc(ctx, job.Seed)
+	mc, err := ContainerCreateMc(ctx, job.Seed)
+	if err != nil {
+		return job, err
+	}
 	if err := DockerClient.ContainerStart(context.TODO(), mc.ID, types.ContainerStartOptions{}); err != nil {
 		return job, err
 	}
@@ -99,6 +102,8 @@ func Worldgen(job GodSeed, ravineProximity int) (GodSeed, error) {
 	if err := <-McStopped; err != nil {
 		return job, err
 	}
+
+	// todo chown
 
 	// overworld checks
 	// this part is RLLY bad
