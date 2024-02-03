@@ -1,13 +1,7 @@
-all: sch cw wg
+all: cw ww
 
-db:
-	# sqlite3 db_.sqlite < ./sql/table.sql
+cw:
+	go build -o ./bin/cw ./cmd/cubiomes-worker/main.go
 
-sch: db
-	go build -o ./bin/scheduler ./cmd/scheduler/main.go
-
-cw: db
-	go build -o ./bin/cubiomes-worker ./cmd/cubiomes-worker/main.go
-
-wg: db
-	go build -o ./bin/worldgen-worker ./cmd/worldgen-worker/main.go
+ww:
+	go build -o ./bin/ww ./cmd/worldgen-worker/main.go

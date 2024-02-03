@@ -17,7 +17,8 @@ import (
 )
 
 var DockerClient *client.Client
-var ContainerName = "McServerTodo"
+
+// var ContainerName = "McServerTodo"
 
 func init() {
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv)
@@ -35,7 +36,7 @@ func KillMcContainer(ctx context.Context) error {
 		return err
 	}
 	for _, v := range cl {
-		if strings.Contains(v.Names[0], ContainerName) {
+		if strings.Contains(v.Names[0], ctx.Value("inst").(string)) {
 			if err := DockerClient.ContainerKill(ctx, v.ID, ""); err != nil {
 				return err
 			}
@@ -53,7 +54,7 @@ func RemoveMcContainer(ctx context.Context) error {
 		return err
 	}
 	for _, v := range cl {
-		if strings.Contains(v.Names[0], ContainerName) {
+		if strings.Contains(v.Names[0], ctx.Value("inst").(string)) {
 			if err := DockerClient.ContainerRemove(ctx, v.ID, types.ContainerRemoveOptions{}); err != nil {
 				return err
 			}
@@ -74,21 +75,21 @@ func ContainerCreateMc(ctx context.Context, seed *string) (container.CreateRespo
 				"EULA=true",
 				"VERSION=1.16.1",
 				fmt.Sprintf("SEED=%s", *seed),
-				"MEMORY=1G",
+				"MEMORY=2G",
 			},
 		},
 		&container.HostConfig{
 			Mounts: []mount.Mount{
 				{
 					Type:   mount.TypeBind,
-					Source: fmt.Sprintf("%s/tmp/mc/data", MustString(os.Getwd())),
+					Source: fmt.Sprintf("%s/tmp/%s/data", MustString(os.Getwd()), ctx.Value("inst").(string)),
 					Target: "/data",
 				},
 			},
 		},
 		&network.NetworkingConfig{},
 		&ocispec.Platform{},
-		ContainerName,
+		ctx.Value("inst").(string),
 	)
 }
 

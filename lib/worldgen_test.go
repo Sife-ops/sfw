@@ -1,12 +1,13 @@
 package lib
 
 import (
+	"context"
 	"testing"
 )
 
 func Test_Worldgen(t *testing.T) {
 	t.Logf("lmaooooooooo")
-	gs, err := Worldgen(GodSeed{
+	gs, err := Worldgen(context.TODO(), GodSeed{
 		// 1018
 		Seed: ToStringRef("5881310871221101610"),
 		// 0

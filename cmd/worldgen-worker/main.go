@@ -1,8 +1,7 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -20,13 +19,13 @@ var sockErrC = make(chan error, 1)
 var wgBusyC = make(chan error, 1)
 var wgStartC = make(chan lib.GodSeed, 1)
 
+var connErrC = make(chan error)
+var generatingC = make(chan struct{}, 1)
+var noErrC = make(chan struct{}, 1)
+
 func init() {
 	lib.FlagParse()
 	signal.Notify(sigC, os.Interrupt)
-	if err := sockClient.Connect(*lib.FlagWorker); err != nil {
-		sockErrC <- err
-	}
-	rlStartC <- errors.New("startup")
 }
 
 func main() {
@@ -35,160 +34,158 @@ func main() {
 	}
 }
 
+func NewCtx() (context.Context, context.CancelFunc) {
+	return context.WithCancel(context.WithValue(context.Background(), "inst", *lib.FlagInst))
+}
+
 func run() error {
+	ctx, cancel := NewCtx()
 	for {
-		if len(sockErrC) > 0 {
-			log.Printf("warning connection error %v", <-sockErrC)
-			log.Printf("info retrying in 3 seconds")
+		select {
+		case <-time.After(3 * time.Second):
+			if len(generatingC) < 1 {
+				generatingC <- struct{}{}
+				go generate(ctx)
+			}
+
+		case err := <-connErrC:
+			cancel()
+			for len(generatingC) > 0 {
+				<-generatingC
+			}
+			ctx, cancel = NewCtx()
+			log.Printf("warning error %v", err)
+			log.Printf("info trying again in 3 seconds")
 			select {
 			case <-time.After(3 * time.Second):
-				log.Printf("info trying to reconnect")
-				if err := sockClient.Connect(*lib.FlagWorker); err != nil {
-					for len(sockErrC) > 0 {
-						log.Printf("info REEEEEE %v", <-sockErrC)
-					}
-					sockErrC <- err
-					continue
-				} else {
-					log.Printf("info connected!")
-					continue
-				}
-			case sig := <-sigC:
-				log.Printf("terminating: %v", sig)
-				goto End
+			case <-sigC:
+				return nil
 			}
+
+		case <-noErrC:
+			cancel()
+			for len(generatingC) > 0 {
+				<-generatingC
+			}
+			ctx, cancel = NewCtx()
+
+		case <-sigC:
+			cancel()
+			return nil
 		}
+	}
+}
 
-		select {
-		case <-rlStartC:
+func generate(ctx context.Context) {
+	tx, err := lib.Db.BeginTxx(ctx, nil)
+	if err != nil {
+		connErrC <- err
+		return
+	}
+
+	cubiomesSeedC := make(chan lib.GodSeed, 1)
+	go func() {
+		cs := []lib.GodSeed{}
+		if err := tx.Select(&cs,
+			`SELECT * 
+			FROM seed 
+			WHERE finished_worldgen IS NULL`,
+		); err != nil {
+			connErrC <- err
+			return
+		}
+		if len(cs) < 1 {
+			noErrC <- struct{}{}
+			return
+		}
+		if _, err := tx.Exec(
+			`UPDATE seed
+			SET finished_worldgen=0
+			WHERE seed=$1`,
+			cs[0].Seed,
+		); err != nil {
+			connErrC <- err
+			return
+		}
+		cubiomesSeedC <- cs[0]
+	}()
+
+	var cubiomesSeed lib.GodSeed
+	select {
+	case <-ctx.Done():
+		return
+	case cs := <-cubiomesSeedC:
+		cubiomesSeed = cs
+	}
+
+	godSeedC := make(chan lib.GodSeed, 1)
+	go func() {
+	Dilate:
+		// todo params
+		// todo context
+		gs, err := lib.Worldgen(ctx, cubiomesSeed, 4)
+		if err != nil {
+			fmt.Printf(">>> ***** WORLDGEN IS DILATING *****\n")
+			fmt.Printf(">>> reason: %v\n", err)
+			fmt.Printf(">>> 1) next\n")
+			fmt.Printf(">>> Enter) dilate\n")
+
+			action := make(chan string)
 			go func() {
-				for {
-					b := make([]byte, 1024)
-					mLen, err := sockClient.Conn.Read(b)
-					if err != nil {
-						sockErrC <- err
-						rlStartC <- err
-						return
-					}
-					cs := lib.GodSeed{}
-					if err := json.Unmarshal(b[:mLen], &cs); err != nil {
-						sockErrC <- err
-						rlStartC <- err
-						return
-					}
-					// log.Printf("info decoded %v", cs)
-					if len(wgStartC) < 1 {
-						wgStartC <- cs
-					}
-				}
-			}()
-			sendIdleC <- errors.New("idle")
-
-		case cs := <-wgStartC:
-			if _, err := lib.Db.Exec(
-				`UPDATE seed
-				SET finished_worldgen=0
-				WHERE seed=$1`,
-				cs.Seed,
-			); err != nil {
-				log.Fatalf("error db %v", err)
-			}
-
-			wgBusyC <- errors.New("busy")
-			gsC := make(chan lib.GodSeed, 1)
-
-			go func() {
-			RetryWorldgen:
-				gs, err := lib.Worldgen(cs, 4)
-				if err != nil {
-					fmt.Printf(">>> ***** WORLDGEN IS DILATING *****\n")
-					fmt.Printf(">>> reason: %v\n", err)
-					fmt.Printf(">>> 1) next\n")
-					fmt.Printf(">>> Enter) retry\n")
-
-					action := make(chan string)
-					go func() {
-						var a string
-						fmt.Scanln(&a)
-						action <- a
-					}()
-
-					select {
-					case <-time.After(30 * time.Second):
-						gsC <- lib.GodSeed{}
-						return
-					case a := <-action:
-						aInt, err := strconv.Atoi(a)
-						if err != nil {
-							goto RetryWorldgen
-						}
-						switch {
-						case aInt == 1:
-							gsC <- lib.GodSeed{}
-							return
-						default:
-							goto RetryWorldgen
-						}
-					}
-				}
-				gsC <- gs
+				var a string
+				fmt.Scanln(&a)
+				action <- a
 			}()
 
 			select {
-			case <-sigC:
-				goto End
-
-			case gs := <-gsC:
-				<-wgBusyC
-
-				if _, err := lib.Db.NamedExec(
-					`UPDATE 
-						seed 
-					SET 
-						ravine_chunks=:ravine_chunks,
-						iron_shipwrecks=:iron_shipwrecks,
-						ravine_proximity=:ravine_proximity,
-						avg_bastion_air=:avg_bastion_air,
-						finished_worldgen=1 
-					WHERE 
-						seed=:seed`,
-					&gs,
-				); err != nil {
-					log.Fatalf("error onUpdate updating record %v", err)
+			case a := <-action:
+				aInt, err := strconv.Atoi(a)
+				if err != nil || aInt != 1 {
+					goto Dilate
 				}
-				log.Printf("info onUpdate updated record %v", gs)
-
-				sendIdleC <- errors.New("idle")
+			case <-time.After(30 * time.Second):
 			}
 
-		case <-time.After(5 * time.Second):
-			sendIdleC <- errors.New("idle")
-
-		case <-sendIdleC:
-			if len(wgBusyC) > 0 {
-				break
+			if err := tx.Commit(); err != nil {
+				connErrC <- err
+				return
 			}
 
-			j, err := json.Marshal(lib.SockState{
-				F0: "worldgen:idle",
-			})
-			if err != nil {
-				sockErrC <- err
-				rlStartC <- err
-				break
-			}
-			_, err = sockClient.Conn.Write(j)
-			if err != nil {
-				sockErrC <- err
-				rlStartC <- err
-			}
-
-		case sig := <-sigC:
-			log.Printf("terminating: %v", sig)
-			goto End
+			noErrC <- struct{}{}
+			return
 		}
+		godSeedC <- gs
+	}()
+
+	var godSeed lib.GodSeed
+	select {
+	case <-ctx.Done():
+		return
+	case gs := <-godSeedC:
+		godSeed = gs
 	}
 
-End:
-	return sockClient.Conn.Close()
+	if _, err := tx.NamedExec(
+		`UPDATE 
+			seed 
+		SET 
+			ravine_chunks=:ravine_chunks,
+			iron_shipwrecks=:iron_shipwrecks,
+			ravine_proximity=:ravine_proximity,
+			avg_bastion_air=:avg_bastion_air,
+			finished_worldgen=1 
+		WHERE 
+			seed=:seed`,
+		&godSeed,
+	); err != nil {
+		connErrC <- err
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		connErrC <- err
+		return
+	}
+
+	noErrC <- struct{}{}
 }

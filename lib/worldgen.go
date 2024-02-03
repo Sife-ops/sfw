@@ -15,8 +15,8 @@ import (
 	"github.com/Tnze/go-mc/save/region"
 )
 
-func Worldgen(job GodSeed, ravineProximity int) (GodSeed, error) {
-	ctx := context.Background()
+func Worldgen(ctx context.Context, job GodSeed, ravineProximity int) (GodSeed, error) {
+	inst := ctx.Value("inst").(string)
 
 	log.Printf("info killing old container")
 	if err := KillMcContainer(ctx); err != nil {
@@ -30,9 +30,18 @@ func Worldgen(job GodSeed, ravineProximity int) (GodSeed, error) {
 		return job, err
 	}
 
+	log.Printf("info creating instance folder")
+	cmdMkDirInst := exec.CommandContext(ctx, "mkdir", "-p",
+		fmt.Sprintf("%s/tmp/%s/data", MustString(os.Getwd()), inst),
+	)
+	if outMkDirInst, err := cmdMkDirInst.Output(); err != nil {
+		log.Printf("info error creating instance folder: %s %v", string(outMkDirInst), err)
+		return job, err
+	}
+
 	log.Printf("info deleting previous world folder")
 	cmdRmRfWorld := exec.CommandContext(ctx, "sudo", "rm", "-rf", // todo susdo
-		fmt.Sprintf("%s/tmp/mc/data/world", MustString(os.Getwd())),
+		fmt.Sprintf("%s/tmp/%s/data/world", MustString(os.Getwd()), inst),
 	)
 	if outRmRfWorld, err := cmdRmRfWorld.Output(); err != nil {
 		log.Printf("info error deleting world folder: %s %v", string(outRmRfWorld), err)
@@ -105,7 +114,7 @@ func Worldgen(job GodSeed, ravineProximity int) (GodSeed, error) {
 
 	log.Printf("info chmod data folder")
 	cmdChmodData := exec.CommandContext(ctx, "sudo", "chmod", "-R", "a+rw",
-		fmt.Sprintf("%s/tmp/mc/data", MustString(os.Getwd())),
+		fmt.Sprintf("%s/tmp/%s/data", MustString(os.Getwd()), inst),
 	)
 	if outChmodData, err := cmdChmodData.Output(); err != nil {
 		log.Printf("error chmod data folder: %s %v", string(outChmodData), err)
@@ -171,8 +180,8 @@ func Worldgen(job GodSeed, ravineProximity int) (GodSeed, error) {
 
 	OpenRegion:
 		region, err := region.Open(fmt.Sprintf(
-			"%s/tmp/mc/data/world/region/r.%d.%d.mca",
-			MustString(os.Getwd()), regionX, regionZ,
+			"%s/tmp/%s/data/world/region/r.%d.%d.mca",
+			MustString(os.Getwd()), inst, regionX, regionZ,
 		))
 		if err != nil {
 			return job, err
@@ -302,8 +311,8 @@ func Worldgen(job GodSeed, ravineProximity int) (GodSeed, error) {
 	netherChunkCoords := job.NetherChunksToBastion()
 
 	region, err := region.Open(fmt.Sprintf(
-		"%s/tmp/mc/data/world/DIM-1/region/r.%d.%d.mca",
-		MustString(os.Getwd()), netherChunkCoords[0].X, netherChunkCoords[0].Z,
+		"%s/tmp/%s/data/world/DIM-1/region/r.%d.%d.mca",
+		MustString(os.Getwd()), inst, netherChunkCoords[0].X, netherChunkCoords[0].Z,
 	))
 	if err != nil {
 		return job, err

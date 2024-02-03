@@ -41,8 +41,12 @@ func run() error {
 			cancel()
 			log.Printf("warning error %v", err)
 			log.Printf("info trying again in 3 seconds")
-			<-time.After(3 * time.Second)
-			continue
+			select {
+			case <-time.After(3 * time.Second):
+			case <-sigC:
+				return nil
+			}
+
 		case <-sigC:
 			cancel()
 			return nil

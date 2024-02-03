@@ -1,6 +1,11 @@
+// TODO DEPRECATED
+// TODO DEPRECATED
+// TODO DEPRECATED
+
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -32,10 +37,7 @@ func init() {
 	WorldgenDone = make(chan struct{}, *FlagJobs)
 }
 
-// todo delete old cubiomes/worldgen/container
-// todo move everything to /lib
 // todo html
-// todo ability to load unfinished seeds
 // todo c interop w/ cubiomes https://karthikkaranth.me/blog/calling-c-code-from-go/
 func main() {
 	defer close(CubiomesDone)
@@ -127,7 +129,7 @@ func main() {
 			}
 
 		default:
-			gs, err := lib.Worldgen(<-CubiomesOut, RavineProximity)
+			gs, err := lib.Worldgen(context.TODO(), <-CubiomesOut, RavineProximity)
 			if err != nil {
 				log.Printf("info recovering from %v", err)
 				WorldgenRecovering <- gs

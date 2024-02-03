@@ -1,3 +1,7 @@
+// TODO DEPRECATED
+// TODO DEPRECATED
+// TODO DEPRECATED
+
 package main
 
 import (
@@ -31,8 +35,8 @@ func main() {
 }
 
 func run() error {
-	log.Printf("info listening on %s", *lib.FlagServer)
-	listener, err := net.Listen("tcp", *lib.FlagServer)
+	log.Printf("info listening on %s", "localhosterino")
+	listener, err := net.Listen("tcp", "localhosterino")
 	if err != nil {
 		return err
 	}
