@@ -31,11 +31,11 @@ func Worldgen(job GodSeed, ravineProximity int) (GodSeed, error) {
 	}
 
 	log.Printf("info deleting previous world folder")
-	cmdRmRfWorld := exec.CommandContext(ctx, "rm", "-rf",
+	cmdRmRfWorld := exec.CommandContext(ctx, "sudo", "rm", "-rf", // todo susdo
 		fmt.Sprintf("%s/tmp/mc/data/world", MustString(os.Getwd())),
 	)
 	if outRmRfWorld, err := cmdRmRfWorld.Output(); err != nil {
-		log.Printf("error deleting world folder: %s %v", string(outRmRfWorld), err)
+		log.Printf("info error deleting world folder: %s %v", string(outRmRfWorld), err)
 		return job, err
 	}
 
@@ -103,7 +103,14 @@ func Worldgen(job GodSeed, ravineProximity int) (GodSeed, error) {
 		return job, err
 	}
 
-	// todo chown
+	log.Printf("info chmod data folder")
+	cmdChmodData := exec.CommandContext(ctx, "sudo", "chmod", "-R", "a+rw",
+		fmt.Sprintf("%s/tmp/mc/data", MustString(os.Getwd())),
+	)
+	if outChmodData, err := cmdChmodData.Output(); err != nil {
+		log.Printf("error chmod data folder: %s %v", string(outChmodData), err)
+		return job, err
+	}
 
 	// overworld checks
 	// this part is RLLY bad
@@ -350,8 +357,6 @@ func Worldgen(job GodSeed, ravineProximity int) (GodSeed, error) {
 	}
 	log.Printf("info *+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*")
 	log.Println()
-
-	log.Printf("info saving seed")
 
 	job.RavineChunks = ToIntRef(len(magmaRavineChunks))
 	job.IronShipwrecks = ToIntRef(len(shipwrecksWithIron))

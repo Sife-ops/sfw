@@ -14,23 +14,21 @@ import (
 )
 
 var flagServer = flag.String("s", "127.0.0.1:3100", "server addr")
-var sendIdleC = make(chan struct{}, 1)
+var rlStartC = make(chan error, 1)
+var sendIdleC = make(chan lib.GodSeed, 1)
 var sigC = make(chan os.Signal, 1)
 var sockClient = lib.SockClient{}
 var sockErrC = make(chan error, 1)
-var startRlC = make(chan error, 1)
-var startWgC = make(chan lib.GodSeed, 1)
+var wbBusyC = make(chan error, 1)
+var wgStartC = make(chan lib.GodSeed, 1)
 
 func init() {
 	flag.Parse()
-
 	signal.Notify(sigC, os.Interrupt)
-
 	if err := sockClient.Connect(*flagServer); err != nil {
 		sockErrC <- err
 	}
-
-	startRlC <- errors.New("startup")
+	rlStartC <- errors.New("startup")
 }
 
 func main() {
@@ -64,46 +62,66 @@ func run() error {
 		}
 
 		select {
-		case <-startRlC:
+		case <-rlStartC:
 			go func() {
 				for {
 					b := make([]byte, 1024)
 					mLen, err := sockClient.Conn.Read(b)
 					if err != nil {
 						sockErrC <- err
-						startRlC <- err
+						rlStartC <- err
 						return
 					}
 					cs := lib.GodSeed{}
 					if err := json.Unmarshal(b[:mLen], &cs); err != nil {
 						sockErrC <- err
-						startRlC <- err
+						rlStartC <- err
 						return
 					}
 					// log.Printf("info decoded %v", cs)
-					if len(startWgC) < 1 {
-						startWgC <- cs
+					if len(wgStartC) < 1 {
+						wgStartC <- cs
 					}
 				}
 			}()
-			sendIdleC <- struct{}{}
+			sendIdleC <- lib.GodSeed{}
 
-		case cs := <-startWgC:
-			// todo multiple worldgen
+		case cs := <-wgStartC:
+			wbBusyC <- errors.New("busy")
 			gsC := make(chan lib.GodSeed, 1)
+
 			go func() {
 			RetryWorldgen:
 				gs, err := lib.Worldgen(cs, 4)
 				if err != nil {
 					fmt.Printf(">>> ***** WORLDGEN IS DILATING *****\n")
 					fmt.Printf(">>> reason: %v\n", err)
-					fmt.Printf(">>> 1) quit or something\n")
+					fmt.Printf(">>> 1) next\n")
 					fmt.Printf(">>> Enter) retry\n")
-					var action string
-					fmt.Scanln(&action)
-					actionInt, err := strconv.Atoi(action)
-					if err != nil || actionInt < 1 || actionInt > 1 {
-						goto RetryWorldgen
+
+					action := make(chan string)
+					go func() {
+						var a string
+						fmt.Scanln(&a)
+						action <- a
+					}()
+
+					select {
+					case <-time.After(30 * time.Second):
+						gsC <- lib.GodSeed{}
+						return
+					case a := <-action:
+						aInt, err := strconv.Atoi(a)
+						if err != nil {
+							goto RetryWorldgen
+						}
+						switch {
+						case aInt == 1:
+							gsC <- lib.GodSeed{}
+							return
+						default:
+							goto RetryWorldgen
+						}
 					}
 				}
 				gsC <- gs
@@ -113,36 +131,31 @@ func run() error {
 			case <-sigC:
 				goto End
 			case gs := <-gsC:
-				j, err := json.Marshal(lib.SockState{
-					F0: "worldgen:idle",
-					F1: gs,
-				})
-				if err != nil {
-					sockErrC <- err
-					startRlC <- err
-					continue
-				}
-				_, err = sockClient.Conn.Write(j)
-				if err != nil {
-					sockErrC <- err
-					startRlC <- err
-					continue
-				}
+				<-wbBusyC
+				sendIdleC <- gs
 			}
 
-		case <-sendIdleC:
+		case <-time.After(5 * time.Second):
+			sendIdleC <- lib.GodSeed{}
+
+		case gs := <-sendIdleC:
+			if len(wbBusyC) > 0 {
+				break
+			}
+
 			j, err := json.Marshal(lib.SockState{
 				F0: "worldgen:idle",
+				F1: gs,
 			})
 			if err != nil {
 				sockErrC <- err
-				startRlC <- err
+				rlStartC <- err
 				break
 			}
 			_, err = sockClient.Conn.Write(j)
 			if err != nil {
 				sockErrC <- err
-				startRlC <- err
+				rlStartC <- err
 			}
 
 		case sig := <-sigC:

@@ -8,16 +8,13 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sfw/lib"
 	"strings"
 	"time"
-
-	"sfw/lib"
 )
 
-// ref https://github.com/nhooyr/websocket/blob/master/internal/examples/echo/server.go
 // ref https://www.developer.com/languages/intro-socket-programming-go/
 
-var cubiomesOut = make(chan lib.GodSeed, 20)
 var onUpdate = make(chan map[net.Conn]lib.SockState, 10) // todo length idk
 var flagServer = flag.String("s", "0.0.0.0:3100", "server addr")
 var sockErrC = make(chan error, 1)
@@ -77,18 +74,28 @@ func run() error {
 		for {
 			select {
 			// todo how to stop dilating
-			case <-time.After(500 * time.Millisecond):
+			case <-time.After(3 * time.Second):
+				gss := []lib.GodSeed{}
+				if err := lib.Db.Select(&gss,
+					`SELECT * 
+					FROM seed 
+					WHERE finished_worldgen IS NULL`,
+				); err != nil {
+					log.Fatalf("error db %v", err)
+				}
+
 				var msg string
 				switch {
-				case len(cubiomesOut) < 6:
+				case len(gss) < 6:
 					msg = "start"
 					break
-				case len(cubiomesOut) > 10:
+				case len(gss) > 9:
 					msg = "stop"
 					break
 				default:
 					continue
 				}
+
 				for k, v := range socks {
 					if strings.Contains(v.F0, "cubiomes") {
 						if _, err := k.Write([]byte(msg)); err != nil {
@@ -127,11 +134,12 @@ func run() error {
 							// todo remove fatals??
 							log.Fatalf("error onUpdate saving cubiomes output %s", err.Error())
 						}
-						cubiomesOut <- v.F1
-						log.Printf("info onUpdate saved cubiomes output, queued %d", len(cubiomesOut))
+						// cubiomesOut <- v.F1
+						// log.Printf("info onUpdate saved cubiomes output, queued %d", len(cubiomesOut))
 						break
 
 					case "worldgen:idle":
+						// todo json omit empty
 						if v.F1.Seed != nil {
 							if _, err := lib.Db.NamedExec(
 								`UPDATE 
@@ -151,19 +159,38 @@ func run() error {
 							log.Printf("info onUpdate updated record %v", v.F1)
 						}
 
-						go func(s net.Conn) {
-							gs := <-cubiomesOut
-							j, err := json.Marshal(gs)
-							if err != nil {
-								sockErrC <- err
-								return
-							}
-							if _, err := s.Write(j); err != nil {
-								sockErrC <- err
-								return
-							}
-							log.Printf("info onUpdate sent to worldgen, queued %d", len(cubiomesOut))
-						}(k)
+						gss := []lib.GodSeed{}
+						if err := lib.Db.Select(&gss,
+							`SELECT * 
+							FROM seed 
+							WHERE finished_worldgen IS NULL`,
+						); err != nil {
+							log.Fatalf("error db %v", err)
+						}
+						log.Printf("info %d worldgen job remaining", len(gss))
+
+						if len(gss) < 1 {
+							break
+						}
+
+						j, err := json.Marshal(gss[0])
+						if err != nil {
+							sockErrC <- err
+							break
+						}
+						if _, err := k.Write(j); err != nil {
+							sockErrC <- err
+							break
+						}
+
+						if _, err := lib.Db.Exec(
+							`UPDATE seed
+							SET finished_worldgen=0
+							WHERE seed=$1`,
+							gss[0].Seed,
+						); err != nil {
+							log.Fatalf("error db %v", err)
+						}
 					}
 				}
 			}
