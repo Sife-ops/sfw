@@ -86,26 +86,16 @@ func run() error {
 							return
 
 						case gs := <-gsC:
-							m := lib.SockState{
-								F0: "cubiomes:output",
-								F1: gs,
+							if _, err := lib.Db.NamedExec(
+								`INSERT INTO seed 
+									(seed, spawn_x, spawn_z, bastion_x, bastion_z, shipwreck_x, shipwreck_z, fortress_x, fortress_z, finished_cubiomes)
+								VALUES 
+									(:seed, :spawn_x, :spawn_z, :bastion_x, :bastion_z, :shipwreck_x, :shipwreck_z, :fortress_x, :fortress_z, :finished_cubiomes)`,
+								&gs,
+							); err != nil {
+								// todo remove fatals??
+								log.Fatalf("error saving cubiomes output %s", err.Error())
 							}
-							j, err := json.Marshal(m)
-							if err != nil {
-								goto EndError
-							}
-							_, err = sockClient.Conn.Write(j)
-							if err != nil {
-								goto EndError
-							}
-							continue
-
-						EndError:
-							<-threadsC
-							sockErrC <- err
-							cubiomesC <- err
-							// idle = true
-							return
 
 						default:
 							gs, err := lib.Cubiomes()

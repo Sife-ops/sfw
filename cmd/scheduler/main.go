@@ -120,43 +120,7 @@ func run() error {
 					log.Printf("info onUpdate connection %v", k)
 					log.Printf("info onUpdate state %v", v)
 					switch v.F0 {
-					case "cubiomes:output":
-						// log.Printf("info saving cubiomes output, %d queued", len(cubiomesOut))
-						if _, err := lib.Db.NamedExec(
-							`INSERT INTO seed 
-								(seed, spawn_x, spawn_z, bastion_x, bastion_z, shipwreck_x, shipwreck_z, fortress_x, fortress_z, finished_cubiomes)
-							VALUES 
-								(:seed, :spawn_x, :spawn_z, :bastion_x, :bastion_z, :shipwreck_x, :shipwreck_z, :fortress_x, :fortress_z, :finished_cubiomes)`,
-							&v.F1,
-						); err != nil {
-							// todo remove fatals??
-							log.Fatalf("error onUpdate saving cubiomes output %s", err.Error())
-						}
-						// cubiomesOut <- v.F1
-						// log.Printf("info onUpdate saved cubiomes output, queued %d", len(cubiomesOut))
-						break
-
 					case "worldgen:idle":
-						// todo json omit empty
-						if v.F1.Seed != nil {
-							if _, err := lib.Db.NamedExec(
-								`UPDATE 
-									seed 
-								SET 
-									ravine_chunks=:ravine_chunks,
-									iron_shipwrecks=:iron_shipwrecks,
-									ravine_proximity=:ravine_proximity,
-									avg_bastion_air=:avg_bastion_air,
-									finished_worldgen=1 
-								WHERE 
-									seed=:seed`,
-								&v.F1,
-							); err != nil {
-								log.Fatalf("error onUpdate updating record %v", err)
-							}
-							log.Printf("info onUpdate updated record %v", v.F1)
-						}
-
 						gss := []lib.GodSeed{}
 						if err := lib.Db.Select(&gss,
 							`SELECT * 
@@ -179,15 +143,6 @@ func run() error {
 						if _, err := k.Write(j); err != nil {
 							sockErrC <- err
 							break
-						}
-
-						if _, err := lib.Db.Exec(
-							`UPDATE seed
-							SET finished_worldgen=0
-							WHERE seed=$1`,
-							gss[0].Seed,
-						); err != nil {
-							log.Fatalf("error db %v", err)
 						}
 					}
 				}

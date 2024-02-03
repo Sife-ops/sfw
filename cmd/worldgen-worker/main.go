@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -13,19 +12,18 @@ import (
 	"time"
 )
 
-var flagServer = flag.String("s", "127.0.0.1:3100", "server addr")
 var rlStartC = make(chan error, 1)
-var sendIdleC = make(chan lib.GodSeed, 1)
+var sendIdleC = make(chan error, 1)
 var sigC = make(chan os.Signal, 1)
 var sockClient = lib.SockClient{}
 var sockErrC = make(chan error, 1)
-var wbBusyC = make(chan error, 1)
+var wgBusyC = make(chan error, 1)
 var wgStartC = make(chan lib.GodSeed, 1)
 
 func init() {
-	flag.Parse()
+	lib.FlagParse()
 	signal.Notify(sigC, os.Interrupt)
-	if err := sockClient.Connect(*flagServer); err != nil {
+	if err := sockClient.Connect(*lib.FlagWorker); err != nil {
 		sockErrC <- err
 	}
 	rlStartC <- errors.New("startup")
@@ -45,7 +43,7 @@ func run() error {
 			select {
 			case <-time.After(3 * time.Second):
 				log.Printf("info trying to reconnect")
-				if err := sockClient.Connect(*flagServer); err != nil {
+				if err := sockClient.Connect(*lib.FlagWorker); err != nil {
 					for len(sockErrC) > 0 {
 						log.Printf("info REEEEEE %v", <-sockErrC)
 					}
@@ -84,10 +82,19 @@ func run() error {
 					}
 				}
 			}()
-			sendIdleC <- lib.GodSeed{}
+			sendIdleC <- errors.New("idle")
 
 		case cs := <-wgStartC:
-			wbBusyC <- errors.New("busy")
+			if _, err := lib.Db.Exec(
+				`UPDATE seed
+				SET finished_worldgen=0
+				WHERE seed=$1`,
+				cs.Seed,
+			); err != nil {
+				log.Fatalf("error db %v", err)
+			}
+
+			wgBusyC <- errors.New("busy")
 			gsC := make(chan lib.GodSeed, 1)
 
 			go func() {
@@ -130,22 +137,40 @@ func run() error {
 			select {
 			case <-sigC:
 				goto End
+
 			case gs := <-gsC:
-				<-wbBusyC
-				sendIdleC <- gs
+				<-wgBusyC
+
+				if _, err := lib.Db.NamedExec(
+					`UPDATE 
+						seed 
+					SET 
+						ravine_chunks=:ravine_chunks,
+						iron_shipwrecks=:iron_shipwrecks,
+						ravine_proximity=:ravine_proximity,
+						avg_bastion_air=:avg_bastion_air,
+						finished_worldgen=1 
+					WHERE 
+						seed=:seed`,
+					&gs,
+				); err != nil {
+					log.Fatalf("error onUpdate updating record %v", err)
+				}
+				log.Printf("info onUpdate updated record %v", gs)
+
+				sendIdleC <- errors.New("idle")
 			}
 
 		case <-time.After(5 * time.Second):
-			sendIdleC <- lib.GodSeed{}
+			sendIdleC <- errors.New("idle")
 
-		case gs := <-sendIdleC:
-			if len(wbBusyC) > 0 {
+		case <-sendIdleC:
+			if len(wgBusyC) > 0 {
 				break
 			}
 
 			j, err := json.Marshal(lib.SockState{
 				F0: "worldgen:idle",
-				F1: gs,
 			})
 			if err != nil {
 				sockErrC <- err
