@@ -159,7 +159,7 @@ func run() error {
 						return
 					case r := <-readC:
 						msg := string(r.b[:r.mLen])
-						log.Printf("info got msg from %v: %s", sockClient.Conn.RemoteAddr(), msg)
+						// log.Printf("info got msg from %v: %s", sockClient.Conn.RemoteAddr(), msg)
 						switch {
 						case msg == "start" && idle:
 							log.Printf("info changing state to active")
