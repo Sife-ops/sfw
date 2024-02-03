@@ -19,8 +19,8 @@ func init() {
 	db, err := sqlx.Open(
 		"postgres",
 		fmt.Sprintf(
-			"postgres://%s:%s@%s/test000?sslmode=disable",
-			*FlagUser, *FlagPass, *FlagHost,
+			"postgres://%s:%s@%s/%s?sslmode=disable",
+			*FlagUser, *FlagPass, *FlagHost, *FlagName,
 		),
 	)
 	if err != nil {
