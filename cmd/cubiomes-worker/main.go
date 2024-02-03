@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -11,27 +9,16 @@ import (
 	"time"
 )
 
-var cubiomesC = make(chan error, 1)
-var idle = true
-var idleC = make(chan error, 1)
+var connErrC = make(chan error)
+var idleC = make(chan struct{}, 1)
 var sigC = make(chan os.Signal, 1)
-var sockClient = lib.SockClient{}
-var sockErrC = make(chan error, 1)
 var threadsC chan struct{}
 
 func init() {
 	lib.FlagParse()
 	threadsC = make(chan struct{}, *lib.FlagThreads)
-
 	signal.Notify(sigC, os.Interrupt)
-
-	err := sockClient.Connect(*lib.FlagWorker)
-	if err != nil {
-		sockErrC <- err
-	}
-
-	cubiomesC <- errors.New("startup")
-	idleC <- errors.New("startup")
+	idleC <- struct{}{}
 }
 
 func main() {
@@ -41,132 +28,89 @@ func main() {
 }
 
 func run() error {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	for {
-		if len(sockErrC) > 0 {
-			// for len(sockErrC) > 0 {
-			log.Printf("warning connection error %v", <-sockErrC)
-			// }
-			log.Printf("info retrying in 3 seconds")
-			select {
-			case <-time.After(3 * time.Second):
-				log.Printf("info trying to reconnect")
-				if err := sockClient.Connect(*lib.FlagWorker); err != nil {
-					// where are more errors coming from...
-					for len(sockErrC) > 0 {
-						log.Printf("info REEEEEE %v", <-sockErrC)
-					}
-					sockErrC <- err
-					continue
-				} else {
-					log.Printf("info connected!")
-					continue
-				}
-			case sig := <-sigC:
-				log.Printf("terminating: %v", sig)
-				goto End
-			}
+		ctx, cancel := context.WithCancel(context.Background())
+		go LoopPollDb(ctx)
+		for len(threadsC) < *lib.FlagThreads {
+			threadsC <- struct{}{}
+			go LoopCubiomes(ctx)
 		}
 
 		select {
-		case <-cubiomesC:
-			for len(threadsC) < *lib.FlagThreads {
-				go func() {
-					threadsC <- struct{}{}
-					gsC := make(chan lib.GodSeed, 1)
-					for {
-						if idle {
-							<-time.After(1 * time.Second)
-							continue
-						}
-
-						select {
-						case <-ctx.Done():
-							return
-
-						case gs := <-gsC:
-							if _, err := lib.Db.NamedExec(
-								`INSERT INTO seed 
-									(seed, spawn_x, spawn_z, bastion_x, bastion_z, shipwreck_x, shipwreck_z, fortress_x, fortress_z, finished_cubiomes)
-								VALUES 
-									(:seed, :spawn_x, :spawn_z, :bastion_x, :bastion_z, :shipwreck_x, :shipwreck_z, :fortress_x, :fortress_z, :finished_cubiomes)`,
-								&gs,
-							); err != nil {
-								// todo remove fatals??
-								log.Fatalf("error saving cubiomes output %s", err.Error())
-							}
-
-						default:
-							gs, err := lib.Cubiomes()
-							// todo check exit code
-							if err != nil {
-								continue
-							}
-							gsC <- gs
-						}
-					}
-				}()
-			}
-
-		case <-idleC:
-			go func() {
-				m := lib.SockState{
-					F0: "cubiomes",
-				}
-				j, err := json.Marshal(m)
-				if err != nil {
-					sockErrC <- err
-					idleC <- err
-					return
-				}
-				sockClient.Conn.Write(j)
-
-				for {
-					readC := make(chan struct {
-						b    []byte
-						mLen int
-					})
-					go func() {
-						b := make([]byte, 1024)
-						mLen, err := sockClient.Conn.Read(b)
-						if err != nil {
-							sockErrC <- err
-							idleC <- err
-							return
-						}
-						readC <- struct {
-							b    []byte
-							mLen int
-						}{b, mLen}
-					}()
-
-					select {
-					case <-ctx.Done():
-						return
-					case r := <-readC:
-						msg := string(r.b[:r.mLen])
-						// log.Printf("info got msg from %v: %s", sockClient.Conn.RemoteAddr(), msg)
-						switch {
-						case msg == "start" && idle:
-							log.Printf("info changing state to active")
-							idle = false
-						case msg == "stop" && !idle:
-							log.Printf("info changing state to idle")
-							idle = true
-						}
-					}
-				}
-			}()
-			break
-
-		case sig := <-sigC:
-			log.Printf("terminating: %v", sig)
-			goto End
+		case err := <-connErrC:
+			cancel()
+			log.Printf("warning error %v", err)
+			log.Printf("info trying again in 3 seconds")
+			<-time.After(3 * time.Second)
+			continue
+		case <-sigC:
+			cancel()
+			return nil
 		}
 	}
+}
 
-End:
-	cancel()
-	return sockClient.Conn.Close()
+func LoopCubiomes(ctx context.Context) {
+	cubiomesSeedC := make(chan lib.GodSeed, 1)
+Loop0:
+	for {
+		select {
+		case <-ctx.Done():
+			break Loop0
+		case cs := <-cubiomesSeedC:
+			if _, err := lib.Db.NamedExec(
+				`INSERT INTO seed 
+					(seed, spawn_x, spawn_z, bastion_x, bastion_z, shipwreck_x, shipwreck_z, fortress_x, fortress_z, finished_cubiomes)
+				VALUES 
+					(:seed, :spawn_x, :spawn_z, :bastion_x, :bastion_z, :shipwreck_x, :shipwreck_z, :fortress_x, :fortress_z, :finished_cubiomes)`,
+				&cs,
+			); err != nil {
+				connErrC <- err
+				break Loop0
+			}
+		default:
+			if len(idleC) > 0 {
+				<-time.After(1 * time.Second)
+				continue
+			}
+			cubiomesSeed, err := lib.Cubiomes()
+			// todo check exit code
+			if err != nil {
+				continue
+			}
+			cubiomesSeedC <- cubiomesSeed
+		}
+	}
+	<-threadsC
+}
+
+func LoopPollDb(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(1 * time.Second):
+			godSeeds := []lib.GodSeed{}
+			if err := lib.Db.Select(&godSeeds,
+				`SELECT * 
+				FROM seed 
+				WHERE finished_worldgen IS NULL`,
+			); err != nil {
+				connErrC <- err
+				return
+			}
+			switch {
+			case len(godSeeds) < 6:
+				if len(idleC) > 0 {
+					<-idleC
+					log.Printf("info changed idle to false")
+				}
+			case len(godSeeds) > 9:
+				if len(idleC) < 1 {
+					idleC <- struct{}{}
+					log.Printf("info changed idle to true")
+				}
+			}
+		}
+	}
 }

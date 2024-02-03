@@ -6,6 +6,7 @@ require (
 	github.com/Tnze/go-mc v0.0.0
 	github.com/docker/docker v24.0.8+incompatible
 	github.com/jmoiron/sqlx v1.3.5
+	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.20
 	github.com/opencontainers/image-spec v1.0.2
 )
@@ -18,7 +19,6 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/uuid v1.3.0 // indirect
-	github.com/lib/pq v1.10.9 // indirect
 	github.com/moby/term v0.5.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
