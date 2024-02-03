@@ -20,7 +20,7 @@ import (
 var cubiomesOut = make(chan lib.GodSeed, 20)
 var onUpdate = make(chan map[net.Conn]lib.SockState, 10) // todo length idk
 var flagServer = flag.String("s", "0.0.0.0:3100", "server addr")
-var sockErrC = make(chan error)
+var sockErrC = make(chan error, 1)
 var socks = map[net.Conn]lib.SockState{}
 var sigC = make(chan os.Signal, 1)
 
@@ -47,10 +47,13 @@ func run() error {
 		for {
 			sockC := make(chan net.Conn)
 			go func() {
+			Retry:
 				sockerino, err := listener.Accept()
 				if err != nil {
-					sockErrC <- err
-					return
+					// sockErrC <- err
+					// return
+					log.Printf("warning listener error %v", err)
+					goto Retry
 				}
 				log.Printf("info new socket connection %v", sockerino)
 				sockC <- sockerino
@@ -128,41 +131,39 @@ func run() error {
 						log.Printf("info onUpdate saved cubiomes output, queued %d", len(cubiomesOut))
 						break
 
-					case "worldgen:output":
-						break
-
 					case "worldgen:idle":
-						gs := <-cubiomesOut
-						j, err := json.Marshal(gs)
-						if err != nil {
-							sockErrC <- err
-							continue
+						if v.F1.Seed != nil {
+							if _, err := lib.Db.NamedExec(
+								`UPDATE 
+									seed 
+								SET 
+									ravine_chunks=:ravine_chunks,
+									iron_shipwrecks=:iron_shipwrecks,
+									ravine_proximity=:ravine_proximity,
+									avg_bastion_air=:avg_bastion_air,
+									finished_worldgen=1 
+								WHERE 
+									seed=:seed`,
+								&v.F1,
+							); err != nil {
+								log.Fatalf("error onUpdate updating record %v", err)
+							}
+							log.Printf("info onUpdate updated record %v", v.F1)
 						}
-						if _, err := k.Write(j); err != nil {
-							sockErrC <- err
-							continue
-						}
-						log.Printf("info onUpdate sent to worldgen, queued %d", len(cubiomesOut))
 
-						if v.F1.Seed == nil {
-							break
-						}
-						if _, err := lib.Db.NamedExec(
-							`UPDATE 
-								seed 
-							SET 
-								ravine_chunks=:ravine_chunks,
-								iron_shipwrecks=:iron_shipwrecks,
-								ravine_proximity=:ravine_proximity,
-								avg_bastion_air=:avg_bastion_air,
-								finished_worldgen=1 
-							WHERE 
-								seed=:seed`,
-							&v.F1,
-						); err != nil {
-							log.Fatalf("error onUpdate updating record %v", err)
-						}
-						log.Printf("info onUpdate updated record %v", v.F1)
+						go func(s net.Conn) {
+							gs := <-cubiomesOut
+							j, err := json.Marshal(gs)
+							if err != nil {
+								sockErrC <- err
+								return
+							}
+							if _, err := s.Write(j); err != nil {
+								sockErrC <- err
+								return
+							}
+							log.Printf("info onUpdate sent to worldgen, queued %d", len(cubiomesOut))
+						}(k)
 					}
 				}
 			}

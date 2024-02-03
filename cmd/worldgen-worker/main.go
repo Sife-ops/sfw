@@ -13,13 +13,13 @@ import (
 	"time"
 )
 
-var startWgC = make(chan lib.GodSeed, 1)
-var startRlC = make(chan error, 1)
+var flagServer = flag.String("s", "127.0.0.1:3100", "server addr")
 var sendIdleC = make(chan struct{}, 1)
 var sigC = make(chan os.Signal, 1)
 var sockClient = lib.SockClient{}
 var sockErrC = make(chan error, 1)
-var flagServer = flag.String("s", "127.0.0.1:3100", "server addr")
+var startRlC = make(chan error, 1)
+var startWgC = make(chan lib.GodSeed, 1)
 
 func init() {
 	flag.Parse()
@@ -89,6 +89,7 @@ func run() error {
 			sendIdleC <- struct{}{}
 
 		case cs := <-startWgC:
+			// todo multiple worldgen
 			gsC := make(chan lib.GodSeed, 1)
 			go func() {
 			RetryWorldgen:
