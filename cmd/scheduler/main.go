@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"log"
 	"net"
 	"os"
@@ -16,13 +15,12 @@ import (
 // ref https://www.developer.com/languages/intro-socket-programming-go/
 
 var onUpdate = make(chan map[net.Conn]lib.SockState, 10) // todo length idk
-var flagServer = flag.String("s", "0.0.0.0:3100", "server addr")
+var sigC = make(chan os.Signal, 1)
 var sockErrC = make(chan error, 1)
 var socks = map[net.Conn]lib.SockState{}
-var sigC = make(chan os.Signal, 1)
 
 func init() {
-	flag.Parse()
+	lib.FlagParse()
 	signal.Notify(sigC, os.Interrupt)
 }
 
@@ -33,8 +31,8 @@ func main() {
 }
 
 func run() error {
-	log.Printf("info listening on %s", *flagServer)
-	listener, err := net.Listen("tcp", *flagServer)
+	log.Printf("info listening on %s", *lib.FlagServer)
+	listener, err := net.Listen("tcp", *lib.FlagServer)
 	if err != nil {
 		return err
 	}

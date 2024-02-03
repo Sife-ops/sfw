@@ -1,23 +1,30 @@
 package lib
 
 import (
+	"fmt"
 	"log"
 	"math"
-	"os"
 
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 var Db *sqlx.DB
 
 func init() {
-	if _, e := os.Stat("./db.sqlite"); e != nil {
-		log.Fatalf("%v", e)
-	}
-	db, e := sqlx.Open("sqlite3", "./db.sqlite")
-	if e != nil {
-		log.Fatalf("%v", e)
+	FlagParse()
+
+	// todo pgx
+	db, err := sqlx.Open(
+		"postgres",
+		fmt.Sprintf(
+			"postgres://%s:%s@%s/test000?sslmode=disable",
+			*FlagUser, *FlagPass, *FlagHost,
+		),
+	)
+	if err != nil {
+		log.Fatalf("error connect %v", err)
 	}
 	Db = db
 }
@@ -46,7 +53,7 @@ type GodSeed struct {
 	FinishedCubiomes *int `db:"finished_cubiomes"`
 	FinishedWorldgen *int `db:"finished_worldgen"`
 
-	Timestamp string `db:"timestamp"`
+	TstzCreated string `db:"tstz_created"`
 }
 
 type Coords struct {

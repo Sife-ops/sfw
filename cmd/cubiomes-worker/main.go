@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -12,23 +11,21 @@ import (
 	"time"
 )
 
-var sockErrC = make(chan error, 1)
 var cubiomesC = make(chan error, 1)
-var flagServer = flag.String("s", "127.0.0.1:3100", "server addr")
-var flagThreads = flag.Int("t", 1, "threads")
 var idle = true
 var idleC = make(chan error, 1)
 var sigC = make(chan os.Signal, 1)
 var sockClient = lib.SockClient{}
+var sockErrC = make(chan error, 1)
 var threadsC chan struct{}
 
 func init() {
-	flag.Parse()
-	threadsC = make(chan struct{}, *flagThreads)
+	lib.FlagParse()
+	threadsC = make(chan struct{}, *lib.FlagThreads)
 
 	signal.Notify(sigC, os.Interrupt)
 
-	err := sockClient.Connect(*flagServer)
+	err := sockClient.Connect(*lib.FlagWorker)
 	if err != nil {
 		sockErrC <- err
 	}
@@ -55,7 +52,7 @@ func run() error {
 			select {
 			case <-time.After(3 * time.Second):
 				log.Printf("info trying to reconnect")
-				if err := sockClient.Connect(*flagServer); err != nil {
+				if err := sockClient.Connect(*lib.FlagWorker); err != nil {
 					// where are more errors coming from...
 					for len(sockErrC) > 0 {
 						log.Printf("info REEEEEE %v", <-sockErrC)
@@ -74,7 +71,7 @@ func run() error {
 
 		select {
 		case <-cubiomesC:
-			for len(threadsC) < *flagThreads {
+			for len(threadsC) < *lib.FlagThreads {
 				go func() {
 					threadsC <- struct{}{}
 					gsC := make(chan lib.GodSeed, 1)
