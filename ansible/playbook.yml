@@ -127,6 +127,7 @@
         ports:
           - "5432:5432"
         env:
+          # todo parameters
           POSTGRES_PASSWORD: "todo000"
           POSTGRES_USER: "todo000"
           POSTGRES_DB: "todo000"
