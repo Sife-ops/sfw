@@ -1,5 +1,5 @@
 ---
-- name: update & create user
+- name: update et al.
   hosts: sfw
   remote_user: root
   tasks:
@@ -22,6 +22,7 @@
       ansible.builtin.systemd_service:
         name: docker.service
         enabled: true
+        # state: started
 
     - name: install golang
       community.general.pacman:
@@ -34,6 +35,12 @@
         group: wheel
         groups: docker
         generate_ssh_key: yes
+
+    - name: dilate sudo
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        regexp: "Same thing without a password"
+        line: "%wheel ALL=(ALL:ALL) NOPASSWD: ALL"
 
     - name: dilate ssh
       ansible.builtin.copy:
@@ -48,11 +55,22 @@
       ansible.builtin.git:
         repo: 'https://github.com/Sife-ops/sfw.git'
         dest: '/home/sfw/sfw'
-        # force: true
         recursive: yes
+        update: true
+
+    # todo pretty sure i can build here
 
     - name: reboot
       ansible.builtin.reboot:
+
+- name: update et al.
+  hosts: sfw
+  remote_user: sfw
+  tasks:
+    - name: pull image
+      community.docker.docker_image:
+        name: itzg/minecraft-server
+        source: pull
 
 - name: dilate manager
   hosts: sfw_manager
@@ -84,6 +102,12 @@
       remote_user: root
       community.general.pacman:
         name: tmux
+        state: present
+
+    - name: install postgresql
+      remote_user: root
+      community.general.pacman:
+        name: postgresql
         state: present
 
     - name: dilate ssh

@@ -18,7 +18,22 @@ localhost ansible_connection=local
 140.82.12.104
 ```
 
-## go
+## on local
 ```
 ansible-playbook ./playbook.yml
+```
+
+## on db
+```
+psql -h localhost -U <db_user> -d <db_name> -a -f ./sql/pg.sql
+psql -U <db_user> -d <db_name> -a -f ./sql/pg.sql
+```
+
+## on workers
+```
+./build.sh
+./bin/cw -db_host=<>:5432 -db_name=<> -db_pass=<> -db_user=<> -inst=sfw<>
+./bin/ww -db_host=<>:5432 -db_name=<> -db_pass=<> -db_user=<> -inst=sfw<>
+./bin/cw -db_host=127.0.0.1:5432 -db_name=todo000 -db_pass=todo000 -db_user=todo000 -inst=sfw0
+./bin/ww -db_host=140.82.45.124:5432 -db_name=todo000 -db_pass=todo000 -db_user=todo000 -inst=sfw0
 ```
