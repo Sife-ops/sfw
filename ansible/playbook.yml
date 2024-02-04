@@ -7,28 +7,34 @@
       community.general.pacman:
         update_cache: true
         upgrade: true
+
     - name: install git
       community.general.pacman:
         name: git
         state: present
+
     - name: install docker
       community.general.pacman:
         name: docker
         state: present
+
     - name: enable docker
       ansible.builtin.systemd_service:
         name: docker.service
         enabled: true
+
     - name: install golang
       community.general.pacman:
         name: go
         state: present
+
     - name: create user
       ansible.builtin.user:
         name: sfw
         group: wheel
         groups: docker
         generate_ssh_key: yes
+
     - name: dilate ssh
       ansible.builtin.copy:
         src: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/id_rsa.pub"
@@ -36,6 +42,18 @@
         owner: sfw
         group: wheel
         mode: '0600'
+
+    - name: clone sfw
+      hosts: sfw
+      remote_user: sfw
+      tasks:
+        - name: clone sfw
+          ansible.builtin.git:
+            repo: 'https://github.com/Sife-ops/sfw.git'
+            dest: '/home/sfw/sfw'
+            # force: true
+            recursive: yes
+
     - name: reboot
       ansible.builtin.reboot:
 

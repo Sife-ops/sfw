@@ -1,0 +1,10 @@
+---
+- name: asdf
+  hosts: sfw_managed
+  remote_user: sfw
+  tasks:
+    - name: dilate ssh
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa') }}"
+        path: /home/sfw/.ssh/authorized_keys
+        backup: yes
