@@ -1,9 +1,9 @@
 ---
-- name: update & create user
+- name: installing sfw
   hosts: managed
   remote_user: sfw
   tasks:
-    - name: full system upgrade
-      community.general.pacman:
-        update_cache: true
-        upgrade: true
+    - name: clone sfw
+      ansible.builtin.git:
+        repo: 'https://github.com/Sife-ops/sfw.git'
+        dest: '/home/sfw/sfw'

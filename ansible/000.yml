@@ -7,6 +7,10 @@
       community.general.pacman:
         update_cache: true
         upgrade: true
+    - name: install git
+      community.general.pacman:
+        name: git
+        state: present
     - name: install docker
       community.general.pacman:
         name: docker
