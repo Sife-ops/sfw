@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-var connErrC = make(chan error)
-var idleC = make(chan struct{}, 1)
+var loopCubiomesErrC = make(chan error)
+var loopCubiomesIdleC = make(chan struct{}, 1)
 var sigC = make(chan os.Signal, 1)
 var threadsC chan struct{}
 
@@ -18,7 +18,7 @@ func init() {
 	lib.FlagParse()
 	threadsC = make(chan struct{}, *lib.FlagThreads)
 	signal.Notify(sigC, os.Interrupt)
-	idleC <- struct{}{}
+	loopCubiomesIdleC <- struct{}{}
 }
 
 func main() {
@@ -28,21 +28,22 @@ func main() {
 }
 
 func run() error {
+	ctx, cancel := context.WithCancel(context.Background())
 	for {
-		ctx, cancel := context.WithCancel(context.Background())
-		go LoopPollDb(ctx)
+		go loopPollDb(ctx)
 		for len(threadsC) < *lib.FlagThreads {
 			threadsC <- struct{}{}
-			go LoopCubiomes(ctx)
+			go loopCubiomes(ctx)
 		}
 
 		select {
-		case err := <-connErrC:
+		case err := <-loopCubiomesErrC:
+			log.Printf("fatal error %v", err)
 			cancel()
-			log.Printf("warning error %v", err)
 			log.Printf("info trying again in 3 seconds")
 			select {
 			case <-time.After(3 * time.Second):
+				ctx, cancel = context.WithCancel(context.Background())
 			case <-sigC:
 				return nil
 			}
@@ -54,7 +55,7 @@ func run() error {
 	}
 }
 
-func LoopCubiomes(ctx context.Context) {
+func loopCubiomes(ctx context.Context) {
 	cubiomesSeedC := make(chan lib.GodSeed, 1)
 Loop0:
 	for {
@@ -69,11 +70,11 @@ Loop0:
 					(:seed, :spawn_x, :spawn_z, :bastion_x, :bastion_z, :shipwreck_x, :shipwreck_z, :fortress_x, :fortress_z, :finished_cubiomes)`,
 				&cs,
 			); err != nil {
-				connErrC <- err
+				loopCubiomesErrC <- err
 				break Loop0
 			}
 		default:
-			if len(idleC) > 0 {
+			if len(loopCubiomesIdleC) > 0 {
 				<-time.After(1 * time.Second)
 				continue
 			}
@@ -88,7 +89,7 @@ Loop0:
 	<-threadsC
 }
 
-func LoopPollDb(ctx context.Context) {
+func loopPollDb(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -100,18 +101,18 @@ func LoopPollDb(ctx context.Context) {
 				FROM seed 
 				WHERE finished_worldgen IS NULL`,
 			); err != nil {
-				connErrC <- err
+				loopCubiomesErrC <- err
 				return
 			}
 			switch {
 			case len(godSeeds) < 6:
-				if len(idleC) > 0 {
-					<-idleC
+				if len(loopCubiomesIdleC) > 0 {
+					<-loopCubiomesIdleC
 					log.Printf("info changed idle to false")
 				}
 			case len(godSeeds) > 9:
-				if len(idleC) < 1 {
-					idleC <- struct{}{}
+				if len(loopCubiomesIdleC) < 1 {
+					loopCubiomesIdleC <- struct{}{}
 					log.Printf("info changed idle to true")
 				}
 			}

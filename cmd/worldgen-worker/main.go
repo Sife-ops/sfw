@@ -11,17 +11,10 @@ import (
 	"time"
 )
 
-var rlStartC = make(chan error, 1)
-var sendIdleC = make(chan error, 1)
+var generateC = make(chan struct{}, 1)
+var generateErrC = make(chan error)
+var generateResetC = make(chan struct{}, 1)
 var sigC = make(chan os.Signal, 1)
-var sockClient = lib.SockClient{}
-var sockErrC = make(chan error, 1)
-var wgBusyC = make(chan error, 1)
-var wgStartC = make(chan lib.GodSeed, 1)
-
-var connErrC = make(chan error)
-var generatingC = make(chan struct{}, 1)
-var noErrC = make(chan struct{}, 1)
 
 func init() {
 	lib.FlagParse()
@@ -43,30 +36,24 @@ func run() error {
 	for {
 		select {
 		case <-time.After(3 * time.Second):
-			if len(generatingC) < 1 {
-				generatingC <- struct{}{}
+			if len(generateC) < 1 {
+				generateC <- struct{}{}
 				go generate(ctx)
 			}
 
-		case err := <-connErrC:
+		case err := <-generateErrC:
+			log.Printf("fatal error %v", err)
 			cancel()
-			for len(generatingC) > 0 {
-				<-generatingC
-			}
-			ctx, cancel = NewCtx()
-			log.Printf("warning error %v", err)
 			log.Printf("info trying again in 3 seconds")
 			select {
 			case <-time.After(3 * time.Second):
+				ctx, cancel = NewCtx()
 			case <-sigC:
 				return nil
 			}
 
-		case <-noErrC:
+		case <-generateResetC:
 			cancel()
-			for len(generatingC) > 0 {
-				<-generatingC
-			}
 			ctx, cancel = NewCtx()
 
 		case <-sigC:
@@ -79,7 +66,8 @@ func run() error {
 func generate(ctx context.Context) {
 	tx, err := lib.Db.BeginTxx(ctx, nil)
 	if err != nil {
-		connErrC <- err
+		generateErrC <- err
+		<-generateC
 		return
 	}
 
@@ -91,11 +79,11 @@ func generate(ctx context.Context) {
 			FROM seed 
 			WHERE finished_worldgen IS NULL`,
 		); err != nil {
-			connErrC <- err
+			generateErrC <- err
 			return
 		}
 		if len(cs) < 1 {
-			noErrC <- struct{}{}
+			generateResetC <- struct{}{}
 			return
 		}
 		if _, err := tx.Exec(
@@ -104,7 +92,7 @@ func generate(ctx context.Context) {
 			WHERE seed=$1`,
 			cs[0].Seed,
 		); err != nil {
-			connErrC <- err
+			generateErrC <- err
 			return
 		}
 		cubiomesSeedC <- cs[0]
@@ -113,6 +101,7 @@ func generate(ctx context.Context) {
 	var cubiomesSeed lib.GodSeed
 	select {
 	case <-ctx.Done():
+		<-generateC
 		return
 	case cs := <-cubiomesSeedC:
 		cubiomesSeed = cs
@@ -121,8 +110,7 @@ func generate(ctx context.Context) {
 	godSeedC := make(chan lib.GodSeed, 1)
 	go func() {
 	Dilate:
-		// todo params
-		// todo context
+		// todo more params
 		gs, err := lib.Worldgen(ctx, cubiomesSeed, 4)
 		if err != nil {
 			fmt.Printf(">>> ***** WORLDGEN IS DILATING *****\n")
@@ -147,11 +135,11 @@ func generate(ctx context.Context) {
 			}
 
 			if err := tx.Commit(); err != nil {
-				connErrC <- err
+				generateErrC <- err
 				return
 			}
 
-			noErrC <- struct{}{}
+			generateResetC <- struct{}{}
 			return
 		}
 		godSeedC <- gs
@@ -160,6 +148,7 @@ func generate(ctx context.Context) {
 	var godSeed lib.GodSeed
 	select {
 	case <-ctx.Done():
+		<-generateC
 		return
 	case gs := <-godSeedC:
 		godSeed = gs
@@ -178,14 +167,17 @@ func generate(ctx context.Context) {
 			seed=:seed`,
 		&godSeed,
 	); err != nil {
-		connErrC <- err
+		generateErrC <- err
+		<-generateC
 		return
 	}
 
 	if err := tx.Commit(); err != nil {
-		connErrC <- err
+		generateErrC <- err
+		<-generateC
 		return
 	}
 
-	noErrC <- struct{}{}
+	generateResetC <- struct{}{}
+	<-generateC
 }
