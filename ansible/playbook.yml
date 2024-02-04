@@ -44,15 +44,12 @@
         mode: '0600'
 
     - name: clone sfw
-      hosts: sfw
       remote_user: sfw
-      tasks:
-        - name: clone sfw
-          ansible.builtin.git:
-            repo: 'https://github.com/Sife-ops/sfw.git'
-            dest: '/home/sfw/sfw'
-            # force: true
-            recursive: yes
+      ansible.builtin.git:
+        repo: 'https://github.com/Sife-ops/sfw.git'
+        dest: '/home/sfw/sfw'
+        # force: true
+        recursive: yes
 
     - name: reboot
       ansible.builtin.reboot:
@@ -84,6 +81,7 @@
         dest: /etc/ansible/hosts
 
     - name: install tmux
+      remote_user: root
       community.general.pacman:
         name: tmux
         state: present
