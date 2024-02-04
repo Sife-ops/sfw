@@ -1,0 +1,9 @@
+---
+- name: update & create user
+  hosts: managed
+  remote_user: sfw
+  tasks:
+    - name: full system upgrade
+      community.general.pacman:
+        update_cache: true
+        upgrade: true

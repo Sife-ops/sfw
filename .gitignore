@@ -1,2 +1,4 @@
 /*.sqlite
 /*.test
+/hosts
+/ansible-hosts

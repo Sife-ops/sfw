@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// todo return continue value???
+// todo return 'continue' bool, only return error if not error 33
 func Cubiomes() (GodSeed, error) {
 	seed := rand.Uint64()
 	// log.Printf("info checking seed %d", int64(seed))
