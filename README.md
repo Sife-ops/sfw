@@ -39,3 +39,6 @@ psql -U <db_user> -d <db_name> -a -f ./sql/pg.sql
 ./bin/cw -db_host=127.0.0.1:5432 -db_name=todo000 -db_pass=todo000 -db_user=todo000 -inst=sfw0
 ./bin/ww -db_host=104.207.132.120:5432 -db_name=todo000 -db_pass=todo000 -db_user=todo000 -inst=sfw0
 ```
+
+## todo
+- pg_dump https://www.postgresql.org/docs/current/app-pgdump.html

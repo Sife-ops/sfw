@@ -3,6 +3,8 @@
   hosts: sfw
   remote_user: root
   tasks:
+    # todo openvpn
+    # todo change sshd settings
     - name: full system upgrade
       community.general.pacman:
         update_cache: true
