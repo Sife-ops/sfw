@@ -44,18 +44,20 @@
           Address = {{ sfwip }}/24
           ListenPort = 51871
           PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/wg/keyprivate') }}
-          # DEADBEEF
+
+          # peers
         dest: "/etc/wireguard/wg0.conf"
 
     - name: configure wireguard peers
       ansible.builtin.blockinfile:
-        insertafter: "DEADBEEF"
+        insertafter: "# peers"
         path: "/etc/wireguard/wg0.conf"
         block: |
           [Peer]
           PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/wg/keypublic') }}
           AllowedIPs = {{ hostvars[item].sfwip }}/32
           Endpoint = {{ item }}:51871
+        marker: "# {mark} peer {{ item }}"
       loop: "{{ other_host_list }}"
 
     - name: connect to sfwvpn

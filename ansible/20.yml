@@ -1,5 +1,5 @@
 ---
-- name: dilate managed [ssh]
+- name: dilate managed hosts
   hosts: sfw_managed
   remote_user: sfw
   tasks:
