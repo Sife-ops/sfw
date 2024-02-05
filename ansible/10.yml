@@ -58,9 +58,9 @@
         volumes:
           - "/home/sfw/pg:/var/lib/postgresql/data"
         ports:
-          - "5432:5432"
+          # todo use variable
+          - "10.0.0.10:5432:5432"
         env:
-          # todo parameters
           POSTGRES_PASSWORD: "{{ pg_pass }}"
           POSTGRES_USER: "{{ pg_user }}"
           POSTGRES_DB: "{{ pg_db }}"
@@ -68,13 +68,15 @@
 
     - name: wait for postgres docker to start
       ansible.builtin.wait_for:
-        host: 127.0.0.1
+        # todo use variable
+        host: 10.0.0.10
         port: 5432
     
     - name: create godseed table
       community.postgresql.postgresql_table:
         login_db: "{{ pg_db }}"
-        login_host: "127.0.0.1"
+        # todo use variable
+        login_host: 10.0.0.10
         login_user: "{{ pg_user }}"
         login_password: "{{ pg_pass }}"
         table: seed

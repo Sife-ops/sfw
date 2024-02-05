@@ -5,6 +5,8 @@
   tasks:
     # todo these task only run 1ce wat else can b moved here???
     # todo change sshd settings
+    # todo enable ufw
+    # todo add ufw rule
     - name: full system upgrade
       community.general.pacman:
         update_cache: true
