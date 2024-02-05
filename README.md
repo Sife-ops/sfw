@@ -5,24 +5,21 @@
 [self]
 localhost ansible_connection=local
 
-[sfw_]
-
-[sfw]
-207.246.85.7
-64.176.223.124
-140.82.12.104
-
 [sfw_manager]
-207.246.85.7
+10.0.0.1 ansible_host=45.76.3.157
+
+[sfw_new]
+[sfw]
+10.0.0.1 ansible_host=45.76.3.157
+10.0.0.2 ansible_host=144.202.1.131
 
 [sfw_managed]
-64.176.223.124
-140.82.12.104
+10.0.0.2 ansible_host=144.202.1.131
 ```
 
 ## on local
 ```
-ansible-playbook ./ansible/all.yml -e "pg_pass=<> pg_user=<> pg_db=<>"
+ansible-playbook ./ansible/all.yml -e "wg_ip=<> pg_pass=<> pg_user=<> pg_db=<>"
 ```
 
 ## on db

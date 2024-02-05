@@ -1,99 +1,91 @@
 ---
-- name: dilate manager
-  hosts: sfw_manager
-  remote_user: sfw
+- name: dilate wireguard (should only do this 1ce?)
+  hosts: sfw
+  remote_user: root
+  gather_facts: false
   tasks:
-    # - name: install ansible
-    #   remote_user: root
-    #   community.general.pacman:
-    #     name: ansible
-    #     state: present
-    # - name: install ansible-core
-    #   remote_user: root
-    #   community.general.pacman:
-    #     name: ansible-core
-    #     state: present
+    - debug:
+        var: ansible_play_hosts
+      run_once: true
+    - debug:
+        var: inventory_hostname
+    - debug:
+        var: hostvars
+      # with_items: "{{ groups['sfw'] }}"
+        # var: ansible_host_list
+      # run_once: true
 
-    # - name: dilate ansible1
-    #   remote_user: root
-    #   ansible.builtin.file:
-    #     path: /etc/ansible
-    #     state: directory
-    # - name: dilate ansible2
-    #   remote_user: root
-    #   ansible.builtin.copy:
-    #     src: /etc/ansible/hosts
-    #     dest: /etc/ansible/hosts
-
-    - name: install tmux
-      remote_user: root
-      community.general.pacman:
-        name: tmux
-        state: present
-
-    - name: install postgresql
-      remote_user: root
-      community.general.pacman:
-        name: postgresql
-        state: present
-
-    - name: install psycopg2
-      remote_user: root
-      community.general.pacman:
-        name: python-psycopg2
-        state: present
-
-    - name: dilate ssh
+    # todo only run this 4 new comps!!!
+    - name: dilate wireguard keys 1
+      ansible.builtin.file:
+        path: /wg
+        state: directory
+    - name: dilate wireguard keys 2
+      ansible.builtin.shell:
+        cmd: "wg genkey | (umask 0077 && tee keyprivate) | wg pubkey > keypublic"
+        chdir: /wg
+    - name: backup wireguard private keys
       ansible.builtin.fetch:
-        src: /home/sfw/.ssh/id_rsa.pub
-        dest: ./tmp/sfw_manager_rsa
-        flat: yes
+        src: /wg/keyprivate
+        dest: ./tmp
+    - name: backup wireguard public keys
+      ansible.builtin.fetch:
+        src: /wg/keypublic
+        dest: ./tmp
+    #     flat: yes
 
-    - name: dilate docker
-      community.docker.docker_container:
-        name: sfw-db
-        image: postgres
-        # pull: true
-        state: started
-        volumes:
-          - "/home/sfw/pg:/var/lib/postgresql/data"
-        ports:
-          - "5432:5432"
-        env:
-          # todo parameters
-          POSTGRES_PASSWORD: "{{ pg_pass }}"
-          POSTGRES_USER: "{{ pg_user }}"
-          POSTGRES_DB: "{{ pg_db }}"
-          PGDATA: "/var/lib/postgresql/data/pgdata"
-    
-    - name: dilate postgres
-      community.postgresql.postgresql_table:
-        login_db: "{{ pg_db }}"
-        login_host: "127.0.0.1"
-        login_user: "{{ pg_user }}"
-        login_password: "{{ pg_pass }}"
-        table: seed
-        columns:
-          - id serial primary key
-          - seed text
-          #
-          - ravine_proximity integer
-          - ravine_chunks integer
-          - iron_shipwrecks integer
-          - avg_bastion_air integer
-          # - avg_fortress_air integer
-          - played integer
-          - rating integer
-          #
-          - spawn_x integer
-          - spawn_z integer
-          - bastion_x integer
-          - bastion_z integer
-          - shipwreck_x integer
-          - shipwreck_z integer
-          - fortress_x integer
-          - fortress_z integer
-          - finished_cubiomes integer
-          - finished_worldgen integer
-          - tstz_created timestamptz default current_timestamp
+    # todo should be run by everyone when a new comp joins
+    # todo remove set fact
+    - name: set factos
+      set_fact:
+        other_host_list: "{{ ansible_play_hosts | difference([inventory_hostname]) }}"
 
+    - name: make dirs
+      ansible.builtin.file:
+        path: "/wg/{{ item }}"
+        state: directory
+      loop: "{{ other_host_list }}"
+
+    - name: copy public keys
+      ansible.builtin.copy:
+        src: "./tmp/{{ item }}/wg/keypublic"
+        dest: "/wg/{{ item }}/keypublic"
+      loop: "{{ other_host_list }}"
+
+    - name: install kustom service filez
+      ansible.builtin.copy:
+        content: |
+          [Interface]
+          ListenPort = 51871
+          PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/wg/keyprivate') }}
+          DEADBEEF
+        dest: "/etc/wireguard/wg0.conf"
+
+    - name: fdsa
+      ansible.builtin.blockinfile:
+        insertafter: "DEADBEEF"
+        path: "/etc/wireguard/wg0.conf"
+        block: |
+          [Peer]
+          PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/wg/keypublic') }}
+          AllowedIPs = {{ hostvars[item].sfwip }}/32
+          Endpoint = {{ item }}:51871
+      loop: "{{ other_host_list }}"
+
+        # "ExecStart=/bin/bash -c '/usr/bin/wg set wg0 peer $(cat /wg/{{ item }}/keypublic) endpoint {{ item }}:51871 allowed-ips {{hostvars ASDFDSAFDSA}}'"
+          # [Peer]
+          # PublicKey = 
+          # AllowedIPs = 
+          # Endpoint =
+
+
+
+    # todo add this line repeatedly
+    # ExecStart=/bin/bash -c '/usr/bin/wg set wg0 peer $(cat /wg/{{ item }}/keypublic) endpoint {{ inventory_hostname }}:51871 allowed-ips 10.0'
+
+    # # todo install and enable systemd service
+    # - name: add wireguard device
+    #   ansible.builtin.copy:
+    #     src: "./tmp/{{ item }}/wg/keypublic"
+    #     dest: "/wg/{{ item }}/keypublic"
+    #   # loop: "{{ other_host_list }}"

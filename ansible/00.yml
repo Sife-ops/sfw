@@ -10,6 +10,11 @@
         update_cache: true
         upgrade: true
 
+    - name: install wireguard
+      community.general.pacman:
+        name: wireguard-tools
+        state: present
+
     - name: install git
       community.general.pacman:
         name: git
@@ -44,13 +49,19 @@
         regexp: "Same thing without a password"
         line: "%wheel ALL=(ALL:ALL) NOPASSWD: ALL"
 
-    - name: dilate ssh
+    - name: install local pubkey on hosts
       ansible.builtin.copy:
         src: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/id_rsa.pub"
         dest: /home/sfw/.ssh/authorized_keys
         owner: sfw
         group: wheel
         mode: '0600'
+
+    # todo no reboot option
+    - name: reboot
+      ansible.builtin.reboot:
+
+    # todo pretty sure i can build here
 
     - name: clone sfw
       remote_user: sfw
@@ -59,11 +70,6 @@
         dest: '/home/sfw/sfw'
         recursive: yes
         update: true
-
-    # todo pretty sure i can build here
-
-    - name: reboot
-      ansible.builtin.reboot:
 
     - name: pull image
       remote_user: sfw

@@ -1,9 +1,9 @@
 ---
-- name: dilate managed
+- name: dilate managed [ssh]
   hosts: sfw_managed
   remote_user: sfw
   tasks:
-    - name: dilate ssh
+    - name: install manager pubkey on other hosts
       ansible.builtin.blockinfile:
         block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa') }}"
         path: /home/sfw/.ssh/authorized_keys

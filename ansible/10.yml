@@ -1,0 +1,103 @@
+---
+- name: dilate manager [tmux|pg|ssh|openvpn?]
+  hosts: sfw_manager
+  # roles:
+  #   - role: githubixx.wireguard
+  remote_user: sfw
+  tasks:
+    # - name: install ansible
+    #   remote_user: root
+    #   community.general.pacman:
+    #     name: ansible
+    #     state: present
+    # - name: install ansible-core
+    #   remote_user: root
+    #   community.general.pacman:
+    #     name: ansible-core
+    #     state: present
+
+    - name: dilate ansible1
+      remote_user: root
+      ansible.builtin.file:
+        path: /etc/ansible
+        state: directory
+    - name: dilate ansible2
+      remote_user: root
+      ansible.builtin.copy:
+        src: /etc/ansible/hosts
+        dest: /etc/ansible/hosts
+
+    - name: install tmux
+      remote_user: root
+      community.general.pacman:
+        name: tmux
+        state: present
+
+    - name: install postgresql
+      remote_user: root
+      community.general.pacman:
+        name: postgresql
+        state: present
+
+    - name: install psycopg2
+      remote_user: root
+      community.general.pacman:
+        name: python-psycopg2
+        state: present
+
+    - name: backup manager pubkey
+      ansible.builtin.fetch:
+        src: /home/sfw/.ssh/id_rsa.pub
+        dest: ./tmp/sfw_manager_rsa
+        flat: yes
+
+    - name: start postgres docker
+      community.docker.docker_container:
+        name: sfw-db
+        image: postgres
+        # pull: true
+        state: started
+        volumes:
+          - "/home/sfw/pg:/var/lib/postgresql/data"
+        ports:
+          - "5432:5432"
+        env:
+          # todo parameters
+          POSTGRES_PASSWORD: "{{ pg_pass }}"
+          POSTGRES_USER: "{{ pg_user }}"
+          POSTGRES_DB: "{{ pg_db }}"
+          PGDATA: "/var/lib/postgresql/data/pgdata"
+
+    # todo needs timeout
+    
+    - name: create godseed table
+      community.postgresql.postgresql_table:
+        login_db: "{{ pg_db }}"
+        login_host: "127.0.0.1"
+        login_user: "{{ pg_user }}"
+        login_password: "{{ pg_pass }}"
+        table: seed
+        columns:
+          - id serial primary key
+          - seed text
+          #
+          - ravine_proximity integer
+          - ravine_chunks integer
+          - iron_shipwrecks integer
+          - avg_bastion_air integer
+          # - avg_fortress_air integer
+          - played integer
+          - rating integer
+          #
+          - spawn_x integer
+          - spawn_z integer
+          - bastion_x integer
+          - bastion_z integer
+          - shipwreck_x integer
+          - shipwreck_z integer
+          - fortress_x integer
+          - fortress_z integer
+          - finished_cubiomes integer
+          - finished_worldgen integer
+          - tstz_created timestamptz default current_timestamp
+
