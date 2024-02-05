@@ -4,9 +4,34 @@
   remote_user: root
   tasks:
     # todo these task only run 1ce wat else can b moved here???
-    # todo change sshd settings
-    # todo enable ufw
+
+    # - name: disable ssh passwords
+    #   ansible.builtin.lineinfile:
+    #     path: /etc/ssh/sshd_config
+    #     regexp: "^#PasswordAuthentication"
+    #     line: "PasswordAuthentication no"
+
+    - name: configure sshd
+      ansible.builtin.blockinfile:
+        insertafter: "^#PasswordAuthentication"
+        path: "/etc/ssh/sshd_config"
+        block: |
+          PasswordAuthentication no
+          AuthenticationMethods publickey
+
+    - name: restart sshd
+      ansible.builtin.systemd_service:
+        name: sshd.service
+        enabled: true
+        state: started
+
     # todo add ufw rule
+    - name: enable firewall
+      ansible.builtin.systemd_service:
+        name: ufw.service
+        enabled: true
+        state: started
+
     - name: full system upgrade
       community.general.pacman:
         update_cache: true
