@@ -63,11 +63,8 @@
     - name: reboot
       ansible.builtin.reboot:
 
-- name: update et al.
-  hosts: sfw
-  remote_user: sfw
-  tasks:
     - name: pull image
+      remote_user: sfw
       community.docker.docker_image:
         name: itzg/minecraft-server
         source: pull

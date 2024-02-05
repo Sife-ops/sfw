@@ -64,15 +64,15 @@ func run() error {
 }
 
 func generate(ctx context.Context) {
-	tx, err := lib.Db.BeginTxx(ctx, nil)
-	if err != nil {
-		generateErrC <- err
-		<-generateC
-		return
-	}
-
 	cubiomesSeedC := make(chan lib.GodSeed, 1)
 	go func() {
+		tx, err := lib.Db.BeginTxx(ctx, nil)
+		if err != nil {
+			generateErrC <- err
+			<-generateC
+			return
+		}
+
 		cs := []lib.GodSeed{}
 		if err := tx.Select(&cs,
 			`SELECT * 
@@ -112,7 +112,7 @@ func generate(ctx context.Context) {
 		cubiomesSeed = cs
 	}
 
-	tx, err = lib.Db.BeginTxx(ctx, nil)
+	tx, err := lib.Db.BeginTxx(ctx, nil)
 	if err != nil {
 		generateErrC <- err
 		<-generateC

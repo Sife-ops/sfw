@@ -5,6 +5,8 @@
 [self]
 localhost ansible_connection=local
 
+[sfw_]
+
 [sfw]
 207.246.85.7
 64.176.223.124

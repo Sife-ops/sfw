@@ -1,4 +1,4 @@
-DATA="data"
+DATA="experiment02"
 
 docker run  --rm \
         --name sfw_db \

@@ -1,9 +1,0 @@
----
-- name: todo
-  hosts: sfw
-  remote_user: root
-  tasks:
-    - name: pull image
-      community.docker.docker_image:
-        name: itzg/minecraft-server
-        source: pull
