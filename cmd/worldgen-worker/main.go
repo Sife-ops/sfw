@@ -95,6 +95,11 @@ func generate(ctx context.Context) {
 			generateErrC <- err
 			return
 		}
+
+		if err := tx.Commit(); err != nil {
+			generateErrC <- err
+			return
+		}
 		cubiomesSeedC <- cs[0]
 	}()
 
@@ -105,6 +110,13 @@ func generate(ctx context.Context) {
 		return
 	case cs := <-cubiomesSeedC:
 		cubiomesSeed = cs
+	}
+
+	tx, err = lib.Db.BeginTxx(ctx, nil)
+	if err != nil {
+		generateErrC <- err
+		<-generateC
+		return
 	}
 
 	godSeedC := make(chan lib.GodSeed, 1)
