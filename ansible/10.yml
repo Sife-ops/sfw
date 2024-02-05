@@ -1,8 +1,6 @@
 ---
-- name: dilate manager [tmux|pg|ssh|openvpn?]
+- name: dilate manager host [tmux|pg|ssh]
   hosts: sfw_manager
-  # roles:
-  #   - role: githubixx.wireguard
   remote_user: sfw
   tasks:
     # - name: install ansible

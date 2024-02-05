@@ -1,5 +1,5 @@
 ---
-- name: update et al.
+- name: dilate updates and packages
   hosts: sfw
   remote_user: root
   tasks:

@@ -1,26 +1,14 @@
 ---
-- name: dilate wireguard (should only do this 1ce?)
+- name: dilate wireguard
   hosts: sfw
   remote_user: root
   gather_facts: false
   tasks:
-    - debug:
-        var: ansible_play_hosts
-      run_once: true
-    - debug:
-        var: inventory_hostname
-    - debug:
-        var: hostvars
-      # with_items: "{{ groups['sfw'] }}"
-        # var: ansible_host_list
-      # run_once: true
-
-    # todo only run this 4 new comps!!!
-    - name: dilate wireguard keys 1
+    - name: create wireguard dir
       ansible.builtin.file:
         path: /wg
         state: directory
-    - name: dilate wireguard keys 2
+    - name: generate wireguard keys
       ansible.builtin.shell:
         cmd: "wg genkey | (umask 0077 && tee keyprivate) | wg pubkey > keypublic"
         chdir: /wg
@@ -32,36 +20,34 @@
       ansible.builtin.fetch:
         src: /wg/keypublic
         dest: ./tmp
-    #     flat: yes
 
-    # todo should be run by everyone when a new comp joins
-    # todo remove set fact
-    - name: set factos
+    - name: set other host list
       set_fact:
         other_host_list: "{{ ansible_play_hosts | difference([inventory_hostname]) }}"
 
-    - name: make dirs
+    - name: make peer dirs
       ansible.builtin.file:
         path: "/wg/{{ item }}"
         state: directory
       loop: "{{ other_host_list }}"
 
-    - name: copy public keys
+    - name: copy peer public keys
       ansible.builtin.copy:
         src: "./tmp/{{ item }}/wg/keypublic"
         dest: "/wg/{{ item }}/keypublic"
       loop: "{{ other_host_list }}"
 
-    - name: install kustom service filez
+    - name: configure wireguard
       ansible.builtin.copy:
         content: |
           [Interface]
+          Address = {{ sfwip }}/24
           ListenPort = 51871
           PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/wg/keyprivate') }}
-          DEADBEEF
+          # DEADBEEF
         dest: "/etc/wireguard/wg0.conf"
 
-    - name: fdsa
+    - name: configure wireguard peers
       ansible.builtin.blockinfile:
         insertafter: "DEADBEEF"
         path: "/etc/wireguard/wg0.conf"
@@ -72,20 +58,8 @@
           Endpoint = {{ item }}:51871
       loop: "{{ other_host_list }}"
 
-        # "ExecStart=/bin/bash -c '/usr/bin/wg set wg0 peer $(cat /wg/{{ item }}/keypublic) endpoint {{ item }}:51871 allowed-ips {{hostvars ASDFDSAFDSA}}'"
-          # [Peer]
-          # PublicKey = 
-          # AllowedIPs = 
-          # Endpoint =
-
-
-
-    # todo add this line repeatedly
-    # ExecStart=/bin/bash -c '/usr/bin/wg set wg0 peer $(cat /wg/{{ item }}/keypublic) endpoint {{ inventory_hostname }}:51871 allowed-ips 10.0'
-
-    # # todo install and enable systemd service
-    # - name: add wireguard device
-    #   ansible.builtin.copy:
-    #     src: "./tmp/{{ item }}/wg/keypublic"
-    #     dest: "/wg/{{ item }}/keypublic"
-    #   # loop: "{{ other_host_list }}"
+    - name: connect to sfwvpn
+      ansible.builtin.systemd_service:
+        name: "wg-quick@wg0"
+        state: restarted
+        enabled: true
