@@ -1,0 +1,72 @@
+---
+- name: update et al.
+  hosts: sfw
+  remote_user: root
+  tasks:
+    # todo openvpn
+    # todo change sshd settings
+    - name: full system upgrade
+      community.general.pacman:
+        update_cache: true
+        upgrade: true
+
+    - name: install git
+      community.general.pacman:
+        name: git
+        state: present
+
+    - name: install docker
+      community.general.pacman:
+        name: docker
+        state: present
+
+    - name: enable docker
+      ansible.builtin.systemd_service:
+        name: docker.service
+        enabled: true
+        # state: started
+
+    - name: install golang
+      community.general.pacman:
+        name: go
+        state: present
+
+    - name: create user
+      ansible.builtin.user:
+        name: sfw
+        group: wheel
+        groups: docker
+        generate_ssh_key: yes
+
+    - name: dilate sudo
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        regexp: "Same thing without a password"
+        line: "%wheel ALL=(ALL:ALL) NOPASSWD: ALL"
+
+    - name: dilate ssh
+      ansible.builtin.copy:
+        src: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/id_rsa.pub"
+        dest: /home/sfw/.ssh/authorized_keys
+        owner: sfw
+        group: wheel
+        mode: '0600'
+
+    - name: clone sfw
+      remote_user: sfw
+      ansible.builtin.git:
+        repo: 'https://github.com/Sife-ops/sfw.git'
+        dest: '/home/sfw/sfw'
+        recursive: yes
+        update: true
+
+    # todo pretty sure i can build here
+
+    - name: reboot
+      ansible.builtin.reboot:
+
+    - name: pull image
+      remote_user: sfw
+      community.docker.docker_image:
+        name: itzg/minecraft-server
+        source: pull

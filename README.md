@@ -22,7 +22,7 @@ localhost ansible_connection=local
 
 ## on local
 ```
-ansible-playbook ./playbook.yml
+ansible-playbook ./ansible/all.yml -e "pg_pass=<> pg_user=<> pg_db=<>"
 ```
 
 ## on db
