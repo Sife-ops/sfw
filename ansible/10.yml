@@ -1,111 +1,66 @@
 ---
-- name: dilate manager host [tmux|pg|ssh]
-  hosts: sfw_manager
-  remote_user: sfw
+- name: dilate wireguard
+  hosts: sfw
+  remote_user: root
   tasks:
-    # - name: install ansible
-    #   remote_user: root
-    #   community.general.pacman:
-    #     name: ansible
-    #     state: present
-    # - name: install ansible-core
-    #   remote_user: root
-    #   community.general.pacman:
-    #     name: ansible-core
-    #     state: present
-
-    - name: create /etc/ansible
-      remote_user: root
+    - name: create wireguard dir
       ansible.builtin.file:
-        path: /etc/ansible
+        path: /wg
         state: directory
-    - name: copy ansible hosts file
-      remote_user: root
-      ansible.builtin.copy:
-        src: /etc/ansible/hosts
-        dest: /etc/ansible/hosts
-
-    - name: install tmux
-      remote_user: root
-      community.general.pacman:
-        name: tmux
-        state: present
-
-    - name: install postgresql
-      remote_user: root
-      community.general.pacman:
-        name: postgresql
-        state: present
-
-    - name: install psycopg2
-      remote_user: root
-      community.general.pacman:
-        name: python-psycopg2
-        state: present
-
-    - name: backup manager pubkey
+    - name: generate wireguard keys
+      ansible.builtin.shell:
+        cmd: "wg genkey | (umask 0077 && tee keyprivate) | wg pubkey > keypublic"
+        chdir: /wg
+    - name: backup wireguard private keys
       ansible.builtin.fetch:
-        src: /home/sfw/.ssh/id_rsa.pub
-        dest: ./tmp/sfw_manager_rsa
-        flat: yes
+        src: /wg/keyprivate
+        dest: ./tmp
+    - name: backup wireguard public keys
+      ansible.builtin.fetch:
+        src: /wg/keypublic
+        dest: ./tmp
 
-    - name: start postgres docker
-      community.docker.docker_container:
-        name: sfw-db
-        image: postgres
-        # pull: true
-        state: started
-        volumes:
-          - "/home/sfw/pg:/var/lib/postgresql/data"
-        ports:
-          - "{{ sfwip }}:5432:5432"
-        env:
-          POSTGRES_HOST_AUTH_METHOD: trust
-          POSTGRES_USER: seed
-          POSTGRES_DB: seed
-          PGDATA: "/var/lib/postgresql/data/pgdata"
+    - name: set other host list
+      set_fact:
+        other_host_list: "{{ ansible_play_hosts | difference([inventory_hostname]) }}"
 
-    - name: wait for postgres docker to start
-      ansible.builtin.wait_for:
-        host: "{{ sfwip }}"
-        port: 5432
-    
-    - name: create godseed table
-      community.postgresql.postgresql_table:
-        login_db: seed
-        login_host: "{{ sfwip }}"
-        login_user: seed
-        table: seed
-        columns:
-          - id serial primary key
-          - seed text
-          #
-          - ravine_proximity integer
-          - ravine_chunks integer
-          - iron_shipwrecks integer
-          - avg_bastion_air integer
-          # - avg_fortress_air integer
-          - played integer
-          - rating integer
-          #
-          - spawn_x integer
-          - spawn_z integer
-          - bastion_x integer
-          - bastion_z integer
-          - shipwreck_x integer
-          - shipwreck_z integer
-          - fortress_x integer
-          - fortress_z integer
-          - finished_cubiomes integer
-          - finished_worldgen integer
-          - tstz_created timestamptz default current_timestamp
+    - name: make peer dirs
+      ansible.builtin.file:
+        path: "/wg/{{ item }}"
+        state: directory
+      loop: "{{ other_host_list }}"
 
-- name: dilate managed hosts
-  hosts: sfw_managed
-  remote_user: sfw
-  tasks:
-    - name: install manager pubkey on other hosts
+    - name: copy peer public keys
+      ansible.builtin.copy:
+        src: "./tmp/{{ item }}/wg/keypublic"
+        dest: "/wg/{{ item }}/keypublic"
+      loop: "{{ other_host_list }}"
+
+    - name: configure wireguard
+      ansible.builtin.copy:
+        content: |
+          [Interface]
+          Address = {{ sfwip }}/24
+          ListenPort = 51871
+          PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/wg/keyprivate') }}
+
+          # peers
+        dest: "/etc/wireguard/wg0.conf"
+
+    - name: configure wireguard peers
       ansible.builtin.blockinfile:
-        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa') }}"
-        path: /home/sfw/.ssh/authorized_keys
-        backup: yes
+        insertafter: "# peers"
+        path: "/etc/wireguard/wg0.conf"
+        block: |
+          [Peer]
+          PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/wg/keypublic') }}
+          AllowedIPs = {{ hostvars[item].sfwip }}/32
+          Endpoint = {{ item }}:51871
+        marker: "# {mark} peer {{ item }}"
+      loop: "{{ other_host_list }}"
+
+    - name: connect to sfwvpn
+      ansible.builtin.systemd_service:
+        name: "wg-quick@wg0"
+        state: restarted
+        enabled: true

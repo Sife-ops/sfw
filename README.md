@@ -6,15 +6,16 @@
 localhost ansible_connection=local
 
 [sfw_manager]
-66.135.19.43 sfwip=10.0.0.10
+149.28.33.186 sfwip=10.0.0.10
 
+# hosts in this tag will be rebooted
 [sfw_new]
 [sfw]
-66.135.19.43 sfwip=10.0.0.10
-66.135.22.113 sfwip=10.0.0.20
+149.28.33.186 sfwip=10.0.0.10
+149.28.46.78 sfwip=10.0.0.20
 
 [sfw_managed]
-66.135.22.113 sfwip=10.0.0.20
+149.28.46.78 sfwip=10.0.0.20
 ```
 
 ## on local

@@ -1,0 +1,111 @@
+---
+- name: dilate manager host [tmux|pg|ssh]
+  hosts: sfw_manager
+  remote_user: sfw
+  tasks:
+    # - name: install ansible
+    #   remote_user: root
+    #   community.general.pacman:
+    #     name: ansible
+    #     state: present
+    # - name: install ansible-core
+    #   remote_user: root
+    #   community.general.pacman:
+    #     name: ansible-core
+    #     state: present
+
+    - name: create /etc/ansible
+      remote_user: root
+      ansible.builtin.file:
+        path: /etc/ansible
+        state: directory
+    - name: copy ansible hosts file
+      remote_user: root
+      ansible.builtin.copy:
+        src: /etc/ansible/hosts
+        dest: /etc/ansible/hosts
+
+    - name: install tmux
+      remote_user: root
+      community.general.pacman:
+        name: tmux
+        state: present
+
+    - name: install postgresql
+      remote_user: root
+      community.general.pacman:
+        name: postgresql
+        state: present
+
+    - name: install psycopg2
+      remote_user: root
+      community.general.pacman:
+        name: python-psycopg2
+        state: present
+
+    - name: backup manager pubkey
+      ansible.builtin.fetch:
+        src: /home/sfw/.ssh/id_rsa.pub
+        dest: ./tmp/sfw_manager_rsa
+        flat: yes
+
+    - name: start postgres docker
+      community.docker.docker_container:
+        name: sfw-db
+        image: postgres
+        # pull: true
+        state: started
+        volumes:
+          - "/home/sfw/pg:/var/lib/postgresql/data"
+        ports:
+          - "{{ sfwip }}:5432:5432"
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: seed
+          POSTGRES_DB: seed
+          PGDATA: "/var/lib/postgresql/data/pgdata"
+
+    - name: wait for postgres docker to start
+      ansible.builtin.wait_for:
+        host: "{{ sfwip }}"
+        port: 5432
+    
+    - name: create godseed table
+      community.postgresql.postgresql_table:
+        login_db: seed
+        login_host: "{{ sfwip }}"
+        login_user: seed
+        table: seed
+        columns:
+          - id serial primary key
+          - seed text
+          #
+          - ravine_proximity integer
+          - ravine_chunks integer
+          - iron_shipwrecks integer
+          - avg_bastion_air integer
+          # - avg_fortress_air integer
+          - played integer
+          - rating integer
+          #
+          - spawn_x integer
+          - spawn_z integer
+          - bastion_x integer
+          - bastion_z integer
+          - shipwreck_x integer
+          - shipwreck_z integer
+          - fortress_x integer
+          - fortress_z integer
+          - finished_cubiomes integer
+          - finished_worldgen integer
+          - tstz_created timestamptz default current_timestamp
+
+- name: dilate managed hosts
+  hosts: sfw_managed
+  remote_user: sfw
+  tasks:
+    - name: install manager pubkey on other hosts
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa') }}"
+        path: /home/sfw/.ssh/authorized_keys
+        backup: yes
