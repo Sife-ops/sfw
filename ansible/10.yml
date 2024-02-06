@@ -1,8 +1,9 @@
 ---
-- name: dilate wireguard 1
+- name: generate wireguard keys
   hosts: sfw
   remote_user: root
   tasks:
+    # todo delete known hosts?
     - name: create wireguard dir
       ansible.builtin.file:
         path: /wg
@@ -20,27 +21,27 @@
         src: /wg/keypublic
         dest: ./tmp
 
-- name: dilate wireguard 2
+- name: set up wireguard for manager
   hosts: sfw_manager
   remote_user: root
   tasks:
-    - name: set other host list
+    - name: set peers
       set_fact:
-        other_host_list: "{{ groups['sfw'] | difference([inventory_hostname]) }}"
+        peers: "{{ groups['sfw'] | difference([inventory_hostname]) }}"
 
-    - name: make peer dirs
+    - name: copy node public keys
       ansible.builtin.file:
         path: "/wg/{{ item }}"
         state: directory
-      loop: "{{ other_host_list }}"
+      loop: "{{ peers }}"
 
-    - name: copy peer public keys
+    - name: copy node public keys
       ansible.builtin.copy:
         src: "./tmp/{{ item }}/wg/keypublic"
         dest: "/wg/{{ item }}/keypublic"
-      loop: "{{ other_host_list }}"
+      loop: "{{ peers }}"
 
-    - name: configure manager wireguard
+    - name: configure wireguard for manager
       ansible.builtin.copy:
         content: |
           [Interface]
@@ -50,7 +51,7 @@
           # peers
         dest: "/etc/wireguard/wg0.conf"
 
-    - name: configure manager wireguard peers
+    - name: configure wireguard peers for manager
       ansible.builtin.blockinfile:
         insertafter: "# peers"
         path: "/etc/wireguard/wg0.conf"
@@ -60,20 +61,20 @@
           AllowedIPs = {{ hostvars[item].sfwip }}/32
           Endpoint = {{ item }}:51871
         marker: "# {mark} peer {{ item }}"
-      loop: "{{ other_host_list }}"
+      loop: "{{ peers }}"
 
-- name: dilate wireguard 3
+- name: set up wireguard for nodes
   hosts: sfw_node
   remote_user: root
   tasks:
-    - name: make peer dir
+    - name: copy manager public key
       ansible.builtin.file:
         path: "/wg/{{ item }}"
         state: directory
       when: hostvars[item].sfwip == "10.0.0.10"
       loop: "{{ groups['sfw'] }}"
 
-    - name: download peer public key for manager
+    - name: copy manager public key
       ansible.builtin.copy:
         src: "./tmp/{{ item }}/wg/keypublic"
         dest: "/wg/{{ item }}/keypublic"
@@ -90,7 +91,7 @@
           # peers
         dest: "/etc/wireguard/wg0.conf"
 
-    - name: configure wireguard peers for node
+    - name: configure wireguard manager for node
       ansible.builtin.blockinfile:
         insertafter: "# peers"
         path: "/etc/wireguard/wg0.conf"
@@ -103,7 +104,7 @@
       when: hostvars[item].sfwip == "10.0.0.10"
       loop: "{{ groups['sfw'] }}"
 
-- name: dilate wireguard 4
+- name: enable wireguard
   hosts: sfw
   remote_user: root
   tasks:
