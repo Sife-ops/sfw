@@ -76,6 +76,6 @@
         group: wheel
         mode: '0600'
 
-    # # todo no reboot option
-    # - name: reboot
-    #   ansible.builtin.reboot:
+    # todo no reboot option
+    - name: reboot
+      ansible.builtin.reboot:
