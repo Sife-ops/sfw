@@ -68,13 +68,14 @@
         name: sfw-db
         image: postgres
         state: started
+        command: "postgres -c 'hba_file=/etc/postgresql/pg_hba.conf'"
         volumes:
           - "/home/sfw/pg:/var/lib/postgresql/data"
           - "/home/sfw/pg_hba.conf:/etc/postgresql/pg_hba.conf"
         ports:
           - "0.0.0.0:5432:5432"
         env:
-          POSTGRES_HOST_AUTH_METHOD: trust
+          # POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_USER: seed
           POSTGRES_PASSWORD: seed # todo untested
           POSTGRES_DB: seed
