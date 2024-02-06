@@ -72,6 +72,7 @@ func loopCubiomes(ctx context.Context) {
 				continue
 			}
 
+			log.Printf("saving potential god seed %s", *cubiomesSeed.Seed)
 			if _, err := lib.Db.NamedExec(
 				`INSERT INTO seed 
 					(seed, spawn_x, spawn_z, bastion_x, bastion_z, shipwreck_x, shipwreck_z, fortress_x, fortress_z, finished_cubiomes)
