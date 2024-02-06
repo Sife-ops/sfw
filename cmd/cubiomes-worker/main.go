@@ -18,7 +18,9 @@ func init() {
 	lib.FlagParse()
 	threadsC = make(chan struct{}, *lib.FlagThreads)
 	signal.Notify(sigC, os.Interrupt)
-	asyncIdleC <- struct{}{}
+	if *lib.FlagCwLim {
+		asyncIdleC <- struct{}{}
+	}
 }
 
 func main() {
@@ -108,7 +110,7 @@ func loopPollDb(ctx context.Context) {
 					<-asyncIdleC
 					log.Printf("info changed idle to false")
 				}
-			case len(godSeeds) > 9:
+			case len(godSeeds) > 9 && *lib.FlagCwLim:
 				if len(asyncIdleC) < 1 {
 					asyncIdleC <- struct{}{}
 					log.Printf("info changed idle to true")

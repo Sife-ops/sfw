@@ -15,14 +15,21 @@ var Db *sqlx.DB
 func init() {
 	FlagParse()
 
-	// todo pgx
-	db, err := sqlx.Open(
-		"postgres",
-		fmt.Sprintf(
+	var connStr string
+	if FlagPass != nil && len(*FlagPass) > 0 {
+		connStr = fmt.Sprintf(
+			"postgres://%s:%s@%s/%s?sslmode=disable",
+			*FlagUser, *FlagPass, *FlagHost, *FlagName,
+		)
+	} else {
+		connStr = fmt.Sprintf(
 			"postgres://%s@%s/%s?sslmode=disable",
 			*FlagUser, *FlagHost, *FlagName,
-		),
-	)
+		)
+	}
+
+	// todo pgx
+	db, err := sqlx.Open("postgres", connStr)
 	if err != nil {
 		log.Fatalf("error connect %v", err)
 	}

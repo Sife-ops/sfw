@@ -77,7 +77,8 @@
         env:
           # POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_USER: seed
-          POSTGRES_PASSWORD: seed # todo untested
+          # ALTER USER seed WITH PASSWORD 'new_password';
+          POSTGRES_PASSWORD: seed 
           POSTGRES_DB: seed
           PGDATA: "/var/lib/postgresql/data/pgdata"
 
@@ -117,7 +118,7 @@
           - tstz_created timestamptz default current_timestamp
 
 - name: dilate managed hosts
-  hosts: sfw_managed
+  hosts: sfw_node
   remote_user: sfw
   tasks:
     - name: install manager pubkey on other hosts

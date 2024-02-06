@@ -14,7 +14,7 @@ localhost ansible_connection=local
 149.28.33.186 sfwip=10.0.0.10
 149.28.46.78 sfwip=10.0.0.20
 
-[sfw_managed]
+[sfw_node]
 149.28.46.78 sfwip=10.0.0.20
 ```
 

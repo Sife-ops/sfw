@@ -10,6 +10,7 @@ var FlagName = flag.String("db_name", "seed", "db user")
 var FlagPass = flag.String("db_pass", "seed", "db password")
 var FlagThreads = flag.Int("t", 1, "threads")
 var FlagUser = flag.String("db_user", "seed", "db user")
+var FlagCwLim = flag.Bool("cw_lim", true, "limit cubiomes workers")
 
 func FlagParse() {
 	flag.Parse()
