@@ -4,7 +4,7 @@ import (
 	"flag"
 )
 
-var FlagHost = flag.String("db_host", "127.0.0.1:5432", "host")
+var FlagHost = flag.String("db_host", "10.0.0.10:5432", "host")
 var FlagInst = flag.String("inst", "sfw0", "instance diff") // todo not good
 var FlagName = flag.String("db_name", "seed", "db user")
 var FlagPass = flag.String("db_pass", "seed", "db password")
