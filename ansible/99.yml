@@ -1,0 +1,14 @@
+---
+- name: backup postgres files
+  hosts: sfw_manager
+  remote_user: root
+  tasks:
+    - name: create archive
+      ansible.builtin.shell:
+        cmd: "tar -cvpf latest.tar pg"
+        chdir: /home/sfw
+    - name: download archive
+      ansible.builtin.fetch:
+        src: /home/sfw/latest.tar
+        dest: ./tmp
+        flat: yes
