@@ -49,19 +49,34 @@
         dest: ./tmp/sfw_manager_rsa
         flat: yes
 
+    - name: create pg_hba.conf
+      ansible.builtin.blockinfile:
+        path: /home/sfw/pg_hba.conf
+        create: true
+        block: |
+          local   all             all                                     trust
+          host    all             all             127.0.0.1/32            trust
+          host    all             all             ::1/128                 trust
+          local   replication     all                                     trust
+          host    replication     all             127.0.0.1/32            trust
+          host    replication     all             ::1/128                 trust
+          host    all             all             10.0.0.0/24             trust
+          host    all             all             all                     scram-sha-256
+
     - name: start postgres docker
       community.docker.docker_container:
         name: sfw-db
         image: postgres
-        # pull: true
         state: started
         volumes:
           - "/home/sfw/pg:/var/lib/postgresql/data"
+          - "/home/sfw/pg_hba.conf:/etc/postgresql/pg_hba.conf"
         ports:
-          - "{{ sfwip }}:5432:5432"
+          - "0.0.0.0:5432:5432"
         env:
           POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_USER: seed
+          POSTGRES_PASSWORD: seed # todo untested
           POSTGRES_DB: seed
           PGDATA: "/var/lib/postgresql/data/pgdata"
 
@@ -69,7 +84,7 @@
       ansible.builtin.wait_for:
         host: "{{ sfwip }}"
         port: 5432
-    
+
     - name: create godseed table
       community.postgresql.postgresql_table:
         login_db: seed
