@@ -34,8 +34,8 @@ psql -U <db_user> -d <db_name> -a -f ./sql/pg.sql
 ./build.sh
 ./bin/cw -db_host=<>:5432 -db_name=<> -db_pass=<> -db_user=<> -inst=sfw<>
 ./bin/ww -db_host=<>:5432 -db_name=<> -db_pass=<> -db_user=<> -inst=sfw<>
-./bin/cw -db_host=127.0.0.1:5432 -db_name=todo000 -db_pass=todo000 -db_user=todo000 -inst=sfw0
-./bin/ww -db_host=10.0.0.10:5432 -db_name=todo000 -db_pass=todo000 -db_user=todo000 -inst=sfw0
+./bin/cw -db_host=10.0.0.10:5432
+./bin/ww -db_host=10.0.0.10:5432
 ```
 
 ## todo

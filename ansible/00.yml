@@ -17,12 +17,12 @@
         enabled: true
         state: started
 
-    # todo add ufw rule
-    - name: enable firewall
+    # todo standard settings no work with wireguard
+    - name: disable firewall
       ansible.builtin.systemd_service:
         name: ufw.service
-        enabled: true
-        state: started
+        enabled: false
+        state: stopped
 
     - name: full system upgrade
       community.general.pacman:
@@ -76,6 +76,6 @@
         group: wheel
         mode: '0600'
 
-    # todo no reboot option
-    - name: reboot
-      ansible.builtin.reboot:
+    # # todo no reboot option
+    # - name: reboot
+    #   ansible.builtin.reboot:
