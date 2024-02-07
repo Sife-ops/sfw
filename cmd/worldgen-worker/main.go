@@ -33,6 +33,7 @@ func NewCtx() (context.Context, context.CancelFunc) {
 }
 
 func run() error {
+	log.Printf("info starting worldgen worker")
 	ctx, cancel := NewCtx()
 	for {
 		select {

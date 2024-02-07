@@ -1,0 +1,19 @@
+---
+- name: run worldgen
+  hosts: sfw_node
+  remote_user: sfw
+  tasks:
+    - name: check if worldgen is running
+      ansible.builtin.shell:
+        cmd: "echo $(pgrep -x ww)"
+      register: pgrep
+
+    - name: start worldgen
+      ansible.builtin.shell:
+        cmd: setsid -f ./bin/ww
+        chdir: /home/sfw/sfw
+      when: pgrep.stdout == ""
+
+    # - name: fdsa
+    #   debug:
+    #     var: lmao.stdout
