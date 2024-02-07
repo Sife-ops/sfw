@@ -34,11 +34,7 @@ func run() error {
 		go func() {
 			var re bytes.Buffer
 			io.Copy(&re, so)
-			// if err != nil {
-			// 	log.Printf("warning error reading socket %v", err)
-			// 	return
-			// }
-			fmt.Printf("%s | %s\n", so.RemoteAddr(), re.String())
+			fmt.Printf("%s | %s", so.RemoteAddr(), re.String())
 			if err := so.Close(); err != nil {
 				log.Printf("%v", err)
 			}
