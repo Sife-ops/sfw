@@ -128,12 +128,6 @@
         groups: docker
         generate_ssh_key: yes
 
-    - name: backup manager pubkey
-      ansible.builtin.fetch:
-        src: /home/sfw/.ssh/id_rsa.pub
-        dest: ./tmp/sfw_manager_rsa
-        flat: yes
-
     - name: install your pubkey
       ansible.builtin.copy:
         src: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/id_rsa.pub"
@@ -225,13 +219,3 @@
           - finished_cubiomes integer
           - finished_worldgen integer
           - tstz_created timestamptz default current_timestamp
-
-- name: configure managed hosts
-  hosts: sfw_node
-  remote_user: sfw
-  tasks:
-    - name: install manager pubkey
-      ansible.builtin.blockinfile:
-        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa') }}"
-        path: /home/sfw/.ssh/authorized_keys
-        backup: yes
