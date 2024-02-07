@@ -55,15 +55,18 @@ func run() error {
 
 		case <-asyncStopC:
 			cancel()
-			for len(threadsC) > 0 {
-				log.Printf("info waiting for %d threads to finish", len(threadsC))
-				<-time.After(1 * time.Second)
-			}
-			log.Printf("info no more threads")
 
 		case <-sigC:
 			cancel()
 			return nil
+		}
+
+		for len(threadsC) > 0 {
+			log.Printf("info waiting for %d threads to finish", len(threadsC))
+			<-time.After(1 * time.Second)
+			if len(threadsC) < 1 {
+				log.Printf("info no more threads")
+			}
 		}
 	}
 }
