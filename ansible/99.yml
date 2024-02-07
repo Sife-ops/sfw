@@ -1,28 +1,36 @@
 ---
 - name: backup postgres files
-  hosts: sfw_manager_src
+  hosts: sfw_manager
   remote_user: root
   tasks:
+    - name: stop postgres
+      community.docker.docker_container:
+        name: sfw-db
+        state: stopped
     - name: create archive
       ansible.builtin.shell:
         cmd: "tar -cvpf sfw-db-latest.tar pg"
         chdir: /home/sfw
+    - name: start postgres
+      community.docker.docker_container:
+        name: sfw-db
+        state: started
     - name: download archive
       ansible.builtin.fetch:
         src: /home/sfw/sfw-db-latest.tar
         dest: ./tmp/
         flat: yes
+    - name: wait for postgres to start
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 5432
 
-- name: transfer postgres files
-  hosts: sfw_manager_dest
-  remote_user: root
-  tasks:
-    - name: upload postgres archive
-      ansible.builtin.copy:
-        src: ./tmp/sfw-db-latest.tar
-        dest: /home/sfw/
 
-    # - name: generate wireguard keys
-    #   ansible.builtin.shell:
-    #     cmd: "tar --same-owner -xvf sfw-db-latest.tar"
-    #     chdir: /home/sfw
+# - name: transfer postgres files
+#   hosts: sfw_manager_dest
+#   remote_user: root
+#   tasks:
+#     - name: upload postgres archive
+#       ansible.builtin.copy:
+#         src: ./tmp/sfw-db-latest.tar
+#         dest: /home/sfw/

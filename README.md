@@ -19,28 +19,15 @@ localhost ansible_connection=local
 149.28.33.186 sfwip=10.0.0.10
 149.28.46.78 sfwip=10.0.0.20
 
+[sfw_node_new]
 [sfw_node]
 149.28.46.78 sfwip=10.0.0.20
 ```
 
-## on local
+## example usage
 ```
-ansible-playbook ./ansible/all.yml -e "pg_pass=<> pg_user=<> pg_db=<>"
-```
-
-## on db
-```
-psql -h localhost -U <db_user> -d <db_name> -a -f ./sql/pg.sql
-psql -U <db_user> -d <db_name> -a -f ./sql/pg.sql
-```
-
-## on workers
-```
-./build.sh
-./bin/cw -db_host=<>:5432 -db_name=<> -db_pass=<> -db_user=<> -inst=sfw<>
-./bin/ww -db_host=<>:5432 -db_name=<> -db_pass=<> -db_user=<> -inst=sfw<>
-./bin/cw -db_host=10.0.0.10:5432
-./bin/ww -db_host=10.0.0.10:5432
+./bin/cw -db_host=<> -db_pass=<>
+./bin/ww
 ```
 
 ## todo
