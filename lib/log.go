@@ -14,6 +14,7 @@ func init() {
 
 type Logger struct{}
 
+// todo split log files
 func (O Logger) Write(p []byte) (n int, err error) {
 	fmt.Printf(string(p))
 

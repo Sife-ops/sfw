@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"sfw/lib"
@@ -36,7 +37,7 @@ func run() error {
 				log.Printf("warning error reading socket %v", err)
 				return
 			}
-			log.Printf("%s | %s", so.RemoteAddr(), string(re[:len]))
+			fmt.Printf("%s | %s\n", so.RemoteAddr(), string(re[:len]))
 		}()
 	}
 
