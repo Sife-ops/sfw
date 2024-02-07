@@ -1,6 +1,6 @@
 ---
 - name: generate wireguard keys
-  hosts: sfw_dev
+  hosts: sfw
   remote_user: root
   tasks:
     # todo put wireguard keys on local
@@ -22,7 +22,7 @@
         dest: ./tmp
 
 - name: set up wireguard for manager
-  hosts: sfw_manager_dev
+  hosts: sfw_manager
   remote_user: root
   tasks:
     - name: delete known hosts
@@ -32,7 +32,7 @@
 
     - name: set peers
       set_fact:
-        peers: "{{ groups['sfw_dev'] | difference([inventory_hostname]) }}"
+        peers: "{{ groups['sfw'] | difference([inventory_hostname]) }}"
 
     - name: copy node public keys
       ansible.builtin.file:
@@ -69,7 +69,7 @@
       loop: "{{ peers }}"
 
 - name: set up wireguard for nodes
-  hosts: sfw_node_dev
+  hosts: sfw_node
   remote_user: root
   tasks:
     - name: copy manager public key
@@ -77,14 +77,14 @@
         path: "/wg/{{ item }}"
         state: directory
       when: hostvars[item].sfwip == "10.0.0.10"
-      loop: "{{ groups['sfw_dev'] }}"
+      loop: "{{ groups['sfw'] }}"
 
     - name: copy manager public key
       ansible.builtin.copy:
         src: "./tmp/{{ item }}/wg/keypublic"
         dest: "/wg/{{ item }}/keypublic"
       when: hostvars[item].sfwip == "10.0.0.10"
-      loop: "{{ groups['sfw_dev'] }}"
+      loop: "{{ groups['sfw'] }}"
 
     - name: configure wireguard for node
       ansible.builtin.copy:
@@ -107,10 +107,10 @@
           Endpoint = {{ item }}:51871
         marker: "# {mark} peer {{ item }}"
       when: hostvars[item].sfwip == "10.0.0.10"
-      loop: "{{ groups['sfw_dev'] }}"
+      loop: "{{ groups['sfw'] }}"
 
 - name: enable wireguard
-  hosts: sfw_dev
+  hosts: sfw
   remote_user: root
   tasks:
     - name: enable custom wireguard service
