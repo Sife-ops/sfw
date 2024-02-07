@@ -56,10 +56,10 @@ func run() error {
 		case <-asyncStopC:
 			cancel()
 			for len(threadsC) > 0 {
-				log.Printf("waiting for %d threads to finish", len(threadsC))
+				log.Printf("info waiting for %d threads to finish", len(threadsC))
 				<-time.After(1 * time.Second)
 			}
-			log.Printf("no more threads")
+			log.Printf("info no more threads")
 
 		case <-sigC:
 			cancel()
@@ -85,7 +85,7 @@ func loopCubiomes(ctx context.Context) {
 				continue
 			}
 
-			log.Printf("saving potential god seed %s", *cubiomesSeed.Seed)
+			log.Printf("info saving potential god seed %s", *cubiomesSeed.Seed)
 			if _, err := lib.Db.NamedExec(
 				`INSERT INTO seed 
 					(seed, spawn_x, spawn_z, bastion_x, bastion_z, shipwreck_x, shipwreck_z, fortress_x, fortress_z, finished_cubiomes)
