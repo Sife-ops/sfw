@@ -12,12 +12,13 @@ import (
 var asyncErrC = make(chan error)
 var asyncIdleC = make(chan struct{}, 1)
 var asyncStopC = make(chan struct{})
-var hysteresisMin = 6
 var hysteresisMax = 9
+var hysteresisMin = 6
 var sigC = make(chan os.Signal, 1)
 var threadsC chan struct{}
 
 func init() {
+	log.SetOutput(lib.Logger{})
 	lib.FlagParse()
 	threadsC = make(chan struct{}, *lib.FlagThreads)
 	signal.Notify(sigC, os.Interrupt)
@@ -103,6 +104,7 @@ func loopCubiomes(ctx context.Context) {
 }
 
 func loopPollDb(ctx context.Context) {
+	notifiedIdle := false
 	for {
 		select {
 		case <-ctx.Done():
@@ -130,6 +132,11 @@ func loopPollDb(ctx context.Context) {
 					asyncIdleC <- struct{}{}
 					asyncStopC <- struct{}{}
 					log.Printf("info changed idle to true")
+				}
+			default:
+				if !notifiedIdle {
+					log.Printf("info idle with %d fresh seeds", len(godSeeds))
+					notifiedIdle = true
 				}
 			}
 		}

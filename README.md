@@ -3,7 +3,7 @@
 ## example hosts
 vultr extract hosts
 ```javascript
-s = ""; document.querySelectorAll("[data-original-title='Copy IP Address']").forEach(x => s = s + x.innerText + " sfwip=10.0.0.\n"); console.log(s)
+s = ""; document.querySelectorAll("[data-original-title='Copy IP Address']").forEach((x, i) => s = `${s}${x.innerText} sfwip=10.0.0.${(i * 10) + 20}\n`); console.log(s)
 ```
 
 ```
