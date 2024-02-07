@@ -1,8 +1,17 @@
 ---
 - name: dilate updates and packages
-  hosts: sfw_new
+  hosts: sfw_new_dev
   remote_user: root
   tasks:
+
+###############################################################################
+###############################################################################
+###############################################################################
+
+###############################################################################
+## NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY N ##
+###############################################################################
+
     - name: configure sshd
       ansible.builtin.blockinfile:
         insertafter: "^#PasswordAuthentication"
@@ -24,36 +33,35 @@
         enabled: false
         state: stopped
 
+###############################################################################
+###############################################################################
+###############################################################################
+
     - name: full system upgrade
       community.general.pacman:
         update_cache: true
         upgrade: true
-
     - name: install wireguard
       community.general.pacman:
         name: wireguard-tools
         state: present
-
-    - name: install git
+    - name: install golang
       community.general.pacman:
-        name: git
+        name: go
         state: present
-
     - name: install docker
       community.general.pacman:
         name: docker
         state: present
-
     - name: enable docker
       ansible.builtin.systemd_service:
         name: docker.service
         enabled: true
         # state: started
 
-    - name: install golang
-      community.general.pacman:
-        name: go
-        state: present
+###############################################################################
+###############################################################################
+###############################################################################
 
     - name: create user
       ansible.builtin.user:
@@ -62,13 +70,7 @@
         groups: docker
         generate_ssh_key: yes
 
-    - name: dilate sudo
-      ansible.builtin.lineinfile:
-        path: /etc/sudoers
-        regexp: "Same thing without a password"
-        line: "%wheel ALL=(ALL:ALL) NOPASSWD: ALL"
-
-    - name: install local pubkey on hosts
+    - name: install your pubkey
       ansible.builtin.copy:
         src: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/id_rsa.pub"
         dest: /home/sfw/.ssh/authorized_keys
@@ -76,6 +78,17 @@
         group: wheel
         mode: '0600'
 
-    # todo no reboot option
+    - name: install manager pubkey
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_dev_rsa') }}"
+        path: /home/sfw/.ssh/authorized_keys
+        backup: yes
+
+    - name: configure sudo
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        regexp: "Same thing without a password"
+        line: "%wheel ALL=(ALL:ALL) NOPASSWD: ALL"
+
     - name: reboot
       ansible.builtin.reboot:

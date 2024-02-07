@@ -1,0 +1,239 @@
+---
+- name: manager setup [oneshot] [debian]
+  hosts: sfw_manager_dev
+  remote_user: root
+  # gather_facts: no
+  tasks:
+
+    # - name: stop
+    #   meta: end_play
+
+###############################################################################
+###############################################################################
+###############################################################################
+
+###############################################################################
+## NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY N ##
+###############################################################################
+
+    - name: configure sshd
+      ansible.builtin.blockinfile:
+        insertafter: "^#PasswordAuthentication"
+        path: "/etc/ssh/sshd_config"
+        block: |
+          PasswordAuthentication no
+          AuthenticationMethods publickey
+
+    - name: restart sshd
+      ansible.builtin.systemd_service:
+        name: sshd.service
+        enabled: true
+        state: started
+
+    # todo standard settings no work with wireguard
+    - name: disable firewall
+      ansible.builtin.systemd_service:
+        name: ufw.service
+        enabled: false
+        state: stopped
+
+###############################################################################
+###############################################################################
+###############################################################################
+
+    ## todo check free instead of file path
+    - name: check if u have swap
+      ansible.builtin.stat:
+        path: "/swapfile"
+      register: stat_swap
+
+    - name: create swapfile
+      ansible.builtin.shell:
+        # chdir: /home/sfw/sfw
+        cmd: "dd if=/dev/zero of=/swapfile bs=1M count=1k status=progress"
+      when: not stat_swap.stat.exists
+
+    - name: chmod swapfile
+      ansible.builtin.shell:
+        cmd: "chmod 0600 /swapfile"
+      when: not stat_swap.stat.exists
+
+    - name: make swap
+      ansible.builtin.shell:
+        cmd: "mkswap -U clear /swapfile"
+      when: not stat_swap.stat.exists
+
+    - name: enable swap
+      ansible.builtin.shell:
+        cmd: "swapon /swapfile"
+      when: not stat_swap.stat.exists
+
+    - name: add swap to fstab
+      ansible.builtin.blockinfile:
+        path: /etc/fstab
+        block: |
+          /swapfile none swap defaults 0 0
+      when: not stat_swap.stat.exists
+
+###############################################################################
+###############################################################################
+###############################################################################
+
+    - name: full system upgrade
+      ansible.builtin.apt:
+        name: "*"
+        state: latest
+
+    - name: install ca-certs (docker)
+      ansible.builtin.apt:
+        name: ca-certificates
+        state: present
+
+    - name: download docker apt keyring
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+
+    - name: configure docker apt repository
+      ansible.builtin.apt_repository:
+        # repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/myrepo.asc] https://download.example.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable"
+        state: present
+
+    - name: update apt cache (docker)
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: install manager tools
+      ansible.builtin.apt:
+        pkg:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+          - tmux
+          - postgresql-client
+          - python3-psycopg
+          - wireguard-tools
+
+###############################################################################
+###############################################################################
+###############################################################################
+
+    - name: create user
+      ansible.builtin.user:
+        name: sfw
+        group: sudo
+        groups: docker
+        generate_ssh_key: yes
+
+    - name: backup manager pubkey
+      ansible.builtin.fetch:
+        src: /home/sfw/.ssh/id_rsa.pub
+        dest: ./tmp/sfw_manager_dev_rsa
+        flat: yes
+
+    - name: install your pubkey
+      ansible.builtin.copy:
+        src: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/id_rsa.pub"
+        dest: /home/sfw/.ssh/authorized_keys
+        owner: sfw
+        group: sudo
+        mode: '0600'
+
+    - name: configure sudo
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        regexp: "%sudo.*ALL=(ALL:ALL).*ALL"
+        line: "%sudo ALL=(ALL:ALL) NOPASSWD: ALL"
+
+    - name: reboot
+      ansible.builtin.reboot:
+
+###############################################################################
+###############################################################################
+###############################################################################
+###############################################################################
+###############################################################################
+###############################################################################
+
+    - name: create pg_hba.conf
+      ansible.builtin.blockinfile:
+        path: /home/sfw/pg_hba.conf
+        create: true
+        block: |
+          local   all             all                                     trust
+          host    all             all             127.0.0.1/32            trust
+          host    all             all             ::1/128                 trust
+          local   replication     all                                     trust
+          host    replication     all             127.0.0.1/32            trust
+          host    replication     all             ::1/128                 trust
+          host    all             all             10.0.0.0/24             trust
+          host    all             all             all                     scram-sha-256
+
+    - name: start postgres docker
+      community.docker.docker_container:
+        name: sfw-db
+        image: postgres
+        state: started
+        command: "postgres -c 'hba_file=/etc/postgresql/pg_hba.conf'"
+        volumes:
+          - "/home/sfw/pg:/var/lib/postgresql/data"
+          - "/home/sfw/pg_hba.conf:/etc/postgresql/pg_hba.conf"
+        ports:
+          - "0.0.0.0:5432:5432"
+        env:
+          POSTGRES_USER: seed
+          # ALTER USER seed WITH PASSWORD 'new_password';
+          POSTGRES_PASSWORD: seed 
+          POSTGRES_DB: seed
+          PGDATA: "/var/lib/postgresql/data/pgdata"
+
+    - name: wait for postgres docker to start
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 5432
+
+    - name: create seed table
+      community.postgresql.postgresql_table:
+        login_db: seed
+        login_host: 127.0.0.1
+        login_user: seed
+        login_password: seed
+        table: seed
+        columns:
+          - id serial primary key
+          - seed text
+          #
+          - ravine_proximity integer
+          - ravine_chunks integer
+          - iron_shipwrecks integer
+          - avg_bastion_air integer
+          # - avg_fortress_air integer
+          - played integer
+          - rating integer
+          #
+          - spawn_x integer
+          - spawn_z integer
+          - bastion_x integer
+          - bastion_z integer
+          - shipwreck_x integer
+          - shipwreck_z integer
+          - fortress_x integer
+          - fortress_z integer
+          - finished_cubiomes integer
+          - finished_worldgen integer
+          - tstz_created timestamptz default current_timestamp
+
+- name: configure managed hosts
+  hosts: sfw_node_dev
+  remote_user: sfw
+  tasks:
+    - name: install manager pubkey
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_dev_rsa') }}"
+        path: /home/sfw/.ssh/authorized_keys
+        backup: yes
+
+# 20.yml

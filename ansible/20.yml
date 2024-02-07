@@ -14,16 +14,16 @@
     #     name: ansible-core
     #     state: present
 
-    - name: create /etc/ansible
-      remote_user: root
-      ansible.builtin.file:
-        path: /etc/ansible
-        state: directory
-    - name: copy ansible hosts file
-      remote_user: root
-      ansible.builtin.copy:
-        src: /etc/ansible/hosts
-        dest: /etc/ansible/hosts
+    # - name: create /etc/ansible
+    #   remote_user: root
+    #   ansible.builtin.file:
+    #     path: /etc/ansible
+    #     state: directory
+    # - name: copy ansible hosts file
+    #   remote_user: root
+    #   ansible.builtin.copy:
+    #     src: /etc/ansible/hosts
+    #     dest: /etc/ansible/hosts
 
     - name: install tmux
       remote_user: root
