@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"sfw/lib"
@@ -30,14 +32,16 @@ func run() error {
 			return err
 		}
 		go func() {
-			defer so.Close()
-			re := make([]byte, 1024)
-			len, err := so.Read(re)
-			if err != nil {
-				log.Printf("warning error reading socket %v", err)
-				return
+			var re bytes.Buffer
+			io.Copy(&re, so)
+			// if err != nil {
+			// 	log.Printf("warning error reading socket %v", err)
+			// 	return
+			// }
+			fmt.Printf("%s | %s\n", so.RemoteAddr(), re.String())
+			if err := so.Close(); err != nil {
+				log.Printf("%v", err)
 			}
-			fmt.Printf("%s | %s\n", so.RemoteAddr(), string(re[:len]))
 		}()
 	}
 
