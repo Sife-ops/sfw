@@ -10,7 +10,7 @@
 
     - name: start worldgen
       ansible.builtin.shell:
-        cmd: setsid -f ./bin/ww
+        cmd: setsid -f ./bin/ww >/dev/null 2>&1
         chdir: /home/sfw/sfw
       when: pgrep.stdout == ""
 
