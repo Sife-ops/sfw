@@ -18,7 +18,7 @@ var sigC = make(chan os.Signal, 1)
 var threadsC chan struct{}
 
 func init() {
-	// log.SetOutput(lib.Logger{})
+	log.SetOutput(lib.Logger{})
 	lib.FlagParse()
 	threadsC = make(chan struct{}, *lib.FlagThreads)
 	signal.Notify(sigC, os.Interrupt)
@@ -34,6 +34,7 @@ func main() {
 }
 
 func run() error {
+	log.Println("starting cubiomes worker")
 	for {
 		ctx, cancel := context.WithCancel(context.Background())
 
