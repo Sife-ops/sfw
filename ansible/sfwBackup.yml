@@ -11,19 +11,13 @@
       ansible.builtin.shell:
         cmd: "tar -cvpf sfw-db-latest.tar pg"
         chdir: /home/sfw
-    - name: start postgres
-      community.docker.docker_container:
-        name: sfw-db
-        state: started
     - name: download archive
       ansible.builtin.fetch:
         src: /home/sfw/sfw-db-latest.tar
         dest: ./tmp/
         flat: yes
-    - name: wait for postgres to start
-      ansible.builtin.wait_for:
-        host: 127.0.0.1
-        port: 5432
+
+- import_playbook: 71.yml
 
 
 # - name: transfer postgres files

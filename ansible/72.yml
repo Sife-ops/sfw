@@ -1,0 +1,35 @@
+---
+- name: manager setup [oneshot] [debian]
+  hosts: sfw_manager
+  remote_user: root
+  tasks:
+    - name: create seed table
+      community.postgresql.postgresql_table:
+        login_db: seed
+        login_host: 127.0.0.1
+        login_user: seed
+        login_password: seed
+        table: seed
+        columns:
+          - id serial primary key
+          - seed text
+          #
+          - ravine_proximity integer
+          - ravine_chunks integer
+          - iron_shipwrecks integer
+          - avg_bastion_air integer
+          # - avg_fortress_air integer
+          - played integer
+          - rating integer
+          #
+          - spawn_x integer
+          - spawn_z integer
+          - bastion_x integer
+          - bastion_z integer
+          - shipwreck_x integer
+          - shipwreck_z integer
+          - fortress_x integer
+          - fortress_z integer
+          - finished_cubiomes integer
+          - finished_worldgen integer
+          - tstz_created timestamptz default current_timestamp
