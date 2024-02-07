@@ -1,6 +1,6 @@
 ---
 - name: dilate updates and packages
-  hosts: sfw_new_dev
+  hosts: sfw_node_new_dev
   remote_user: root
   tasks:
 
