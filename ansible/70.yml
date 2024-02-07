@@ -111,10 +111,22 @@
           - containerd.io
           - docker-buildx-plugin
           - docker-compose-plugin
+          # - make
+          # - golang
           - tmux
           - postgresql-client
           - python3-psycopg
           - wireguard-tools
+
+    # todo MUST FETCH FROM GH
+    # todo MUST FETCH FROM GH
+    # todo MUST FETCH FROM GH
+    - name: install loggerino
+      remote_user: sfw
+      ansible.builtin.copy:
+        src: ../bin/loggerino
+        dest: /home/sfw/loggerino
+        mode: +x
 
 ###############################################################################
 ###############################################################################
