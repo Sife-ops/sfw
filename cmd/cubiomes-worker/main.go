@@ -11,6 +11,7 @@ import (
 
 var asyncErrC = make(chan error)
 var asyncIdleC = make(chan struct{}, 1)
+var asyncStopC = make(chan struct{})
 var sigC = make(chan os.Signal, 1)
 var threadsC chan struct{}
 
@@ -30,8 +31,9 @@ func main() {
 }
 
 func run() error {
-	ctx, cancel := context.WithCancel(context.Background())
 	for {
+		ctx, cancel := context.WithCancel(context.Background())
+
 		go loopPollDb(ctx)
 		for len(threadsC) < *lib.FlagThreads {
 			threadsC <- struct{}{}
@@ -45,9 +47,15 @@ func run() error {
 			log.Printf("info trying again in 3 seconds")
 			select {
 			case <-time.After(3 * time.Second):
-				ctx, cancel = context.WithCancel(context.Background())
 			case <-sigC:
 				return nil
+			}
+
+		case <-asyncStopC:
+			cancel()
+			for len(threadsC) > 0 {
+				log.Printf("waiting for threads to finish")
+				<-time.After(1 * time.Second)
 			}
 
 		case <-sigC:
@@ -61,13 +69,15 @@ func loopCubiomes(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			<-threadsC
+			return
 		default:
 			if len(asyncIdleC) > 0 {
 				<-time.After(1 * time.Second)
 				continue
 			}
 
-			cubiomesSeed, err := lib.Cubiomes()
+			cubiomesSeed, err := lib.Cubiomes(ctx)
 			if err != nil {
 				continue
 			}
@@ -81,13 +91,9 @@ func loopCubiomes(ctx context.Context) {
 				&cubiomesSeed,
 			); err != nil {
 				asyncErrC <- err
-			} else {
-				continue
 			}
 		}
-		break
 	}
-	<-threadsC
 }
 
 func loopPollDb(ctx context.Context) {
@@ -108,12 +114,15 @@ func loopPollDb(ctx context.Context) {
 			switch {
 			case len(godSeeds) < 6:
 				if len(asyncIdleC) > 0 {
-					<-asyncIdleC
+					for len(asyncIdleC) > 0 {
+						<-asyncIdleC
+					}
 					log.Printf("info changed idle to false")
 				}
 			case len(godSeeds) > 9 && *lib.FlagCwLim:
 				if len(asyncIdleC) < 1 {
 					asyncIdleC <- struct{}{}
+					asyncStopC <- struct{}{}
 					log.Printf("info changed idle to true")
 				}
 			}
