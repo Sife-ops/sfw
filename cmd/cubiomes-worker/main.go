@@ -12,6 +12,8 @@ import (
 var asyncErrC = make(chan error)
 var asyncIdleC = make(chan struct{}, 1)
 var asyncStopC = make(chan struct{})
+var hysteresisMin = 6
+var hysteresisMax = 9
 var sigC = make(chan os.Signal, 1)
 var threadsC chan struct{}
 
@@ -54,9 +56,10 @@ func run() error {
 		case <-asyncStopC:
 			cancel()
 			for len(threadsC) > 0 {
-				log.Printf("waiting for threads to finish")
+				log.Printf("waiting for %d threads to finish", len(threadsC))
 				<-time.After(1 * time.Second)
 			}
+			log.Printf("no more threads")
 
 		case <-sigC:
 			cancel()
@@ -112,14 +115,14 @@ func loopPollDb(ctx context.Context) {
 				return
 			}
 			switch {
-			case len(godSeeds) < 6:
+			case len(godSeeds) < hysteresisMin:
 				if len(asyncIdleC) > 0 {
 					for len(asyncIdleC) > 0 {
 						<-asyncIdleC
 					}
 					log.Printf("info changed idle to false")
 				}
-			case len(godSeeds) > 9 && *lib.FlagCwLim:
+			case len(godSeeds) > hysteresisMax && *lib.FlagCwLim:
 				if len(asyncIdleC) < 1 {
 					asyncIdleC <- struct{}{}
 					asyncStopC <- struct{}{}
