@@ -20,7 +20,7 @@
         chdir: /home/sfw/sfw
         cmd: "make all"
 
-    - name: pull image
+    - name: pull docker image for minecraft server
       community.docker.docker_image:
         name: itzg/minecraft-server
         source: pull
