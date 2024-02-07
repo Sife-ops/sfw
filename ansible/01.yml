@@ -1,6 +1,7 @@
 ---
 - name: dilate updates and packages (continued)
-  hosts: sfw_node_new
+  hosts: sfw
+  # hosts: sfw_node_new
   remote_user: sfw
   tasks:
     - name: clone sfw
