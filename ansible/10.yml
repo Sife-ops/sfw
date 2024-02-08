@@ -2,6 +2,8 @@
 - name: install updates and packages for nodes
   hosts: sfw_node
   remote_user: root
+  vars:
+    reboot: "{{ (reboot == 'yes') | ternary('yea', 'no') }}"
   tasks:
     - name: full system upgrade
       community.general.pacman:
@@ -24,50 +26,21 @@
         name: docker.service
         enabled: true
         # state: started
-
-###############################################################################
-## NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY N ##
-###############################################################################
-
-    # needs 2 b "sudo" on gud debian
-    - name: create user
+    - name: add sfw to docker group
       ansible.builtin.user:
         name: sfw
-        group: wheel
         groups: docker
-        generate_ssh_key: yes
 
-    - name: configure sudo for a node
-      ansible.builtin.lineinfile:
-        path: /etc/sudoers
-        regexp: "Same thing without a password"
-        line: "%wheel ALL=(ALL:ALL) NOPASSWD: ALL"
-
-    # local pubkey for root has already been copied by ur provider
-    - name: install local pubkey on sfw user
-      ansible.builtin.blockinfile:
-        block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
-        path: /home/sfw/.ssh/authorized_keys
-        marker: "# {mark} {{ lookup('ansible.builtin.env', 'HOSTNAME') }} PUBKEY"
-        create: true
-        backup: yes
-
-###############################################################################
-## NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY N ##
-###############################################################################
-
-    # todo 'force reboot' extra option
-    # check for 'rebooted' file
     - name: check if the computer has ever rebooted
       ansible.builtin.stat:
-        path: "/root/has_rebooted"
+        path: /root/has_rebooted
       register: stat_rebooted
 
     - name: reboot
       ansible.builtin.reboot:
-      when: not stat_rebooted.stat.exists
+      when: reboot == 'yes' or not stat_rebooted.stat.exists
 
-    - name: remember this reboot
+    - name: remember this computer has rebooted
       ansible.builtin.file:
         path: /root/has_rebooted
         state: touch

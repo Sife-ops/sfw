@@ -2,7 +2,18 @@
 - name: configure sshd and disable firewall
   hosts: sfw
   remote_user: root
+  vars:
+    # todo wont work on on debian-likes?
+    # todo how to check for sudo or wheel
+    superGroup: "{{ (hostvars[inventory_hostname].ansible_distribution == 'Debian') | ternary('sudo', 'wheel') }}"
   tasks:
+
+    # - name: lol
+    #   debug:
+    #     var: superGroup
+    # - name: stop
+    #   meta: end_play
+
     - name: configure sshd
       ansible.builtin.blockinfile:
         insertafter: "^#PasswordAuthentication"
@@ -27,3 +38,25 @@
         enabled: false
         state: stopped
       when: ansible_facts.services['ufw.service'] is defined
+
+    - name: configure sudo
+      ansible.builtin.blockinfile:
+        path: /etc/sudoers.d/ansible-sudoers
+        block: "%{{ superGroup }} ALL=(ALL:ALL) NOPASSWD: ALL"
+        create: true
+        backup: yes
+
+    - name: create sfw user
+      ansible.builtin.user:
+        name: sfw
+        group: "{{ superGroup }}"
+        generate_ssh_key: yes
+
+    # local pubkey for root has already been copied by ur provider
+    - name: install local pubkey on sfw user
+      ansible.builtin.blockinfile:
+        path: /home/sfw/.ssh/authorized_keys
+        block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
+        marker: "# {mark} {{ lookup('ansible.builtin.env', 'HOSTNAME') }} PUBKEY"
+        create: true
+        backup: yes

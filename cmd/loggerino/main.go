@@ -50,6 +50,7 @@ func acceptSockets(ctx context.Context) {
 	}
 	log.Printf("info listening on %s", *lib.FlagLogSrv)
 
+	// todo multiple listener.Accept?
 	for {
 		soC := make(chan net.Conn)
 		go func() {
@@ -71,7 +72,6 @@ func acceptSockets(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		// case so := <-soC:
 		case <-soC:
 		}
 	}

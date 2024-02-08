@@ -2,8 +2,13 @@
 - name: manager setup [oneshot] [debian]
   hosts: sfw_manager
   remote_user: root
+  vars:
+    reboot: "{{ (reboot == 'yes') | ternary('no', 'yes') }}"
   tasks:
 
+    # - name: lmao
+    #   debug:
+    #     var: reboot
     # - name: stop
     #   meta: end_play
 
@@ -49,27 +54,22 @@
       ansible.builtin.apt:
         name: "*"
         state: latest
-
     - name: install ca-certs (docker)
       ansible.builtin.apt:
         name: ca-certificates
         state: present
-
     - name: download docker apt keyring
       ansible.builtin.get_url:
         url: https://download.docker.com/linux/debian/gpg
         dest: /etc/apt/keyrings/docker.asc
-
     - name: configure docker apt repository
       ansible.builtin.apt_repository:
         # repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/myrepo.asc] https://download.example.com/linux/ubuntu {{ ansible_distribution_release }} stable"
         repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable"
         state: present
-
     - name: update apt cache (docker)
       ansible.builtin.apt:
         update_cache: yes
-
     - name: install manager tools
       ansible.builtin.apt:
         pkg:
@@ -85,6 +85,14 @@
           - postgresql-client
           - python3-psycopg
           - wireguard-tools
+    - name: add sfw to docker group
+      ansible.builtin.user:
+        name: sfw
+        groups: docker
+
+###############################################################################
+###############################################################################
+###############################################################################
 
     # todo MUST FETCH FROM GH
     # todo MUST FETCH FROM GH
@@ -96,37 +104,6 @@
         dest: /home/sfw/loggerino
         mode: +x
 
-###############################################################################
-## NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY N ##
-###############################################################################
-
-    # needs 2 b "sudo" on gud debian
-    - name: create user
-      ansible.builtin.user:
-        name: sfw
-        group: sudo
-        groups: docker
-        generate_ssh_key: yes
-
-    - name: configure sudo for manager
-      ansible.builtin.lineinfile:
-        path: /etc/sudoers
-        regexp: "%sudo.*ALL=(ALL:ALL).*ALL"
-        line: "%sudo ALL=(ALL:ALL) NOPASSWD: ALL"
-
-    # local pubkey for root has already been copied by ur provider
-    - name: install local pubkey on sfw user
-      ansible.builtin.blockinfile:
-        block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
-        path: /home/sfw/.ssh/authorized_keys
-        marker: "# {mark} {{ lookup('ansible.builtin.env', 'HOSTNAME') }} PUBKEY"
-        create: true
-        backup: yes
-
-###############################################################################
-## NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY N ##
-###############################################################################
-
-    # todo optional reboot
     - name: reboot
       ansible.builtin.reboot:
+      when: reboot == 'yes'
