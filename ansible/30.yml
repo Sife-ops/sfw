@@ -10,7 +10,7 @@
         recursive: yes
         update: true
 
-    - name: copy node public keys
+    - name: copy hosts file
       ansible.builtin.copy:
         src: "./hosts"
         dest: "/home/sfw/sfw/ansible/hosts"
