@@ -25,11 +25,34 @@
         enabled: true
         # state: started
 
+###############################################################################
+## NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY N ##
+###############################################################################
+
+    # needs 2 b "sudo" on gud debian
+    - name: create user
+      ansible.builtin.user:
+        name: sfw
+        group: wheel
+        groups: docker
+        generate_ssh_key: yes
+
     - name: configure sudo for a node
       ansible.builtin.lineinfile:
         path: /etc/sudoers
         regexp: "Same thing without a password"
         line: "%wheel ALL=(ALL:ALL) NOPASSWD: ALL"
+
+    # local pubkey for root has already been copied by ur provider
+    - name: install local pubkey on sfw user
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
+        path: /home/sfw/.ssh/authorized_keys
+        backup: yes
+
+###############################################################################
+## NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY N ##
+###############################################################################
 
     # todo 'force reboot' extra option
     # check for 'rebooted' file
@@ -47,4 +70,3 @@
       ansible.builtin.file:
         path: /root/has_rebooted
       when: not stat_rebooted.stat.exists
-
