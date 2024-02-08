@@ -1,140 +1,55 @@
 ---
-- name: generate wireguard keys
-  hosts: sfw
-  remote_user: root
-  tasks:
-    # todo put wireguard keys on local
-    - name: create wireguard dir
-      ansible.builtin.file:
-        path: /wg
-        state: directory
-    - name: generate wireguard keys
-      ansible.builtin.shell:
-        cmd: "wg genkey | (umask 0077 && tee keyprivate) | wg pubkey > keypublic"
-        chdir: /wg
-    - name: backup wireguard private keys
-      ansible.builtin.fetch:
-        src: /wg/keyprivate
-        dest: ./tmp
-    - name: backup wireguard public keys
-      ansible.builtin.fetch:
-        src: /wg/keypublic
-        dest: ./tmp
-
-- name: set up wireguard for manager
+- name: set up ssh for manager
   hosts: sfw_manager
   remote_user: root
   tasks:
-    - name: backup manager ssh pubkey
+    - name: generate ssh key for root
+      ansible.builtin.user:
+        name: root
+        generate_ssh_key: yes
+
+    - name: backup manager ssh pubkey (sfw)
       ansible.builtin.fetch:
         src: /home/sfw/.ssh/id_rsa.pub
-        dest: ./tmp/sfw_manager_rsa
+        dest: ./tmp/sfw_manager_rsa_sfw
+        flat: yes
+    - name: backup manager ssh pubkey (root)
+      ansible.builtin.fetch:
+        src: /root/.ssh/id_rsa.pub
+        dest: ./tmp/sfw_manager_rsa_root
         flat: yes
 
-    - name: delete ssh known hosts
+    - name: delete ssh known hosts (sfw)
       ansible.builtin.file:
         path: /home/sfw/.ssh/known_hosts
         state: absent
-
-###############################################################################
-###############################################################################
-###############################################################################
-
-    - name: set peers
-      set_fact:
-        peers: "{{ groups['sfw'] | difference([inventory_hostname]) }}"
-
-    - name: copy node public keys
+    - name: delete ssh known hosts (root)
       ansible.builtin.file:
-        path: "/wg/{{ item }}"
-        state: directory
-      loop: "{{ peers }}"
+        path: /root/.ssh/known_hosts
+        state: absent
 
-    - name: copy node public keys
-      ansible.builtin.copy:
-        src: "./tmp/{{ item }}/wg/keypublic"
-        dest: "/wg/{{ item }}/keypublic"
-      loop: "{{ peers }}"
-
-    - name: configure wireguard for manager
-      ansible.builtin.copy:
-        content: |
-          [Interface]
-          Address = {{ sfwip }}/24
-          ListenPort = 51871
-          PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/wg/keyprivate') }}
-          # peers
-        dest: "/etc/wireguard/wg0.conf"
-
-    - name: configure wireguard peers for manager
-      ansible.builtin.blockinfile:
-        insertafter: "# peers"
-        path: "/etc/wireguard/wg0.conf"
-        block: |
-          [Peer]
-          PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/wg/keypublic') }}
-          AllowedIPs = {{ hostvars[item].sfwip }}/32
-          Endpoint = {{ item }}:51871
-        marker: "# {mark} peer {{ item }}"
-      loop: "{{ peers }}"
-
-- name: set up wireguard for nodes
+- name: set up ssh for nodes
   hosts: sfw_node
   remote_user: root
   tasks:
-    - name: install manager ssh pubkey
+    - name: install manager ssh pubkeys (sfw)
       ansible.builtin.blockinfile:
-        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa') }}"
+        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_sfw') }}"
         path: /home/sfw/.ssh/authorized_keys
         backup: yes
-
-###############################################################################
-###############################################################################
-###############################################################################
-
-    - name: copy manager public key
-      ansible.builtin.file:
-        path: "/wg/{{ item }}"
-        state: directory
-      when: hostvars[item].sfwip == "10.0.0.10"
-      loop: "{{ groups['sfw'] }}"
-
-    - name: copy manager public key
-      ansible.builtin.copy:
-        src: "./tmp/{{ item }}/wg/keypublic"
-        dest: "/wg/{{ item }}/keypublic"
-      when: hostvars[item].sfwip == "10.0.0.10"
-      loop: "{{ groups['sfw'] }}"
-
-    - name: configure wireguard for node
-      ansible.builtin.copy:
-        content: |
-          [Interface]
-          Address = {{ sfwip }}/24
-          ListenPort = 51871
-          PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/wg/keyprivate') }}
-          # peers
-        dest: "/etc/wireguard/wg0.conf"
-
-    - name: configure wireguard manager for node
+    - name: install manager ssh pubkeys (sfw)
       ansible.builtin.blockinfile:
-        insertafter: "# peers"
-        path: "/etc/wireguard/wg0.conf"
-        block: |
-          [Peer]
-          PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/wg/keypublic') }}
-          AllowedIPs = {{ hostvars[item].sfwip }}/32
-          Endpoint = {{ item }}:51871
-        marker: "# {mark} peer {{ item }}"
-      when: hostvars[item].sfwip == "10.0.0.10"
-      loop: "{{ groups['sfw'] }}"
+        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_sfw') }}"
+        path: /root/.ssh/authorized_keys
+        backup: yes
 
-- name: enable wireguard
-  hosts: sfw
-  remote_user: root
-  tasks:
-    - name: enable custom wireguard service
-      ansible.builtin.systemd_service:
-        name: "wg-quick@wg0"
-        state: restarted
-        enabled: true
+    - name: install manager ssh pubkeys (root)
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_root') }}"
+        path: /home/sfw/.ssh/authorized_keys
+        backup: yes
+    - name: install manager ssh pubkeys (root)
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_root') }}"
+        path: /root/.ssh/authorized_keys
+        backup: yes

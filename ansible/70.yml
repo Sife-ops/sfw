@@ -2,43 +2,10 @@
 - name: manager setup [oneshot] [debian]
   hosts: sfw_manager
   remote_user: root
-  # gather_facts: no
   tasks:
 
     # - name: stop
     #   meta: end_play
-
-###############################################################################
-###############################################################################
-###############################################################################
-
-###############################################################################
-## NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY N ##
-###############################################################################
-
-    - name: configure sshd
-      ansible.builtin.blockinfile:
-        insertafter: "^#PasswordAuthentication"
-        path: "/etc/ssh/sshd_config"
-        block: |
-          PasswordAuthentication no
-          AuthenticationMethods publickey
-
-    - name: restart sshd
-      ansible.builtin.systemd_service:
-        name: sshd.service
-        state: restarted
-
-    # todo standard settings no work with wireguard
-    - name: disable firewall
-      ansible.builtin.systemd_service:
-        name: ufw.service
-        enabled: false
-        state: stopped
-
-###############################################################################
-###############################################################################
-###############################################################################
 
     ## todo check free instead of file path
     - name: check if u have swap
@@ -113,39 +80,38 @@
           - docker-compose-plugin
           # - make
           # - golang
+          - ansible
           - tmux
           - postgresql-client
           - python3-psycopg
           - wireguard-tools
 
-    # todo MUST FETCH FROM GH
-    # todo MUST FETCH FROM GH
-    # todo MUST FETCH FROM GH
-    - name: install loggerino
-      remote_user: sfw
-      ansible.builtin.copy:
-        src: ../bin/loggerino
-        dest: /home/sfw/loggerino
-        mode: +x
+    # # todo MUST FETCH FROM GH
+    # # todo MUST FETCH FROM GH
+    # # todo MUST FETCH FROM GH
+    # - name: install loggerino
+    #   remote_user: sfw
+    #   ansible.builtin.copy:
+    #     src: ../bin/loggerino
+    #     dest: /home/sfw/loggerino
+    #     mode: +x
 
 ###############################################################################
-###############################################################################
+## TODO NOT DRY TODO NOT DRY TODO NOT DRY TODO NOT DRY TODO NOT DRY  TODO NO ##
 ###############################################################################
 
-    - name: create user
+    - name: create sfw user
       ansible.builtin.user:
         name: sfw
         group: sudo
         groups: docker
         generate_ssh_key: yes
 
-    - name: install your pubkey
-      ansible.builtin.copy:
-        src: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/id_rsa.pub"
-        dest: /home/sfw/.ssh/authorized_keys
-        owner: sfw
-        group: sudo
-        mode: '0600'
+    - name: install local pubkey on sfw user
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
+        path: /home/sfw/.ssh/authorized_keys
+        backup: yes
 
     - name: configure sudo
       ansible.builtin.lineinfile:
@@ -155,3 +121,5 @@
 
     - name: reboot
       ansible.builtin.reboot:
+
+- import_playbook: 02.yml

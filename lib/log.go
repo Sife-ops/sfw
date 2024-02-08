@@ -6,13 +6,13 @@ import (
 	"time"
 )
 
+type Logger struct{}
+
 var warn = 10
 
 func init() {
 	FlagParse()
 }
-
-type Logger struct{}
 
 // todo split log files
 func (O Logger) Write(p []byte) (n int, err error) {

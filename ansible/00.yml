@@ -1,17 +1,8 @@
 ---
 - name: dilate updates and packages
-  hosts: sfw_node_new
+  hosts: sfw
   remote_user: root
   tasks:
-
-###############################################################################
-###############################################################################
-###############################################################################
-
-###############################################################################
-## NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY N ##
-###############################################################################
-
     - name: configure sshd
       ansible.builtin.blockinfile:
         insertafter: "^#PasswordAuthentication"
@@ -19,69 +10,20 @@
         block: |
           PasswordAuthentication no
           AuthenticationMethods publickey
+      register: sshd
 
     - name: restart sshd
       ansible.builtin.systemd_service:
         name: sshd.service
         state: restarted
+      when: sshd.changed
 
-    # todo standard settings no work with wireguard
+    - name: populate service facts
+      ansible.builtin.service_facts:
+    # todo standard ufw settings no work with wireguard
     - name: disable firewall
       ansible.builtin.systemd_service:
         name: ufw.service
         enabled: false
         state: stopped
-
-###############################################################################
-###############################################################################
-###############################################################################
-
-    - name: full system upgrade
-      community.general.pacman:
-        update_cache: true
-        upgrade: true
-    - name: install wireguard
-      community.general.pacman:
-        name: wireguard-tools
-        state: present
-    - name: install golang
-      community.general.pacman:
-        name: go
-        state: present
-    - name: install docker
-      community.general.pacman:
-        name: docker
-        state: present
-    - name: enable docker
-      ansible.builtin.systemd_service:
-        name: docker.service
-        enabled: true
-        # state: started
-
-###############################################################################
-###############################################################################
-###############################################################################
-
-    - name: create user
-      ansible.builtin.user:
-        name: sfw
-        group: wheel
-        groups: docker
-        generate_ssh_key: yes
-
-    - name: install your pubkey
-      ansible.builtin.copy:
-        src: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/id_rsa.pub"
-        dest: /home/sfw/.ssh/authorized_keys
-        owner: sfw
-        group: wheel
-        mode: '0600'
-
-    - name: configure sudo
-      ansible.builtin.lineinfile:
-        path: /etc/sudoers
-        regexp: "Same thing without a password"
-        line: "%wheel ALL=(ALL:ALL) NOPASSWD: ALL"
-
-    - name: reboot
-      ansible.builtin.reboot:
+      when: ansible_facts.services['ufw.service'] is defined

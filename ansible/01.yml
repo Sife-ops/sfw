@@ -1,28 +1,54 @@
 ---
-- name: dilate updates and packages (continued)
-  # hosts: sfw
+- name: dilate updates and packages
   hosts: sfw_node_new
-  # hosts: sfw_node
-  remote_user: sfw
+  remote_user: root
   tasks:
-    - name: clone sfw
-      ansible.builtin.git:
-        repo: https://github.com/Sife-ops/sfw.git
-        dest: /home/sfw/sfw
-        recursive: yes
-        update: true
+    - name: full system upgrade
+      community.general.pacman:
+        update_cache: true
+        upgrade: true
+    - name: install wireguard
+      community.general.pacman:
+        name: wireguard-tools
+        state: present
+    - name: install golang
+      community.general.pacman:
+        name: go
+        state: present
+    - name: install docker
+      community.general.pacman:
+        name: docker
+        state: present
+    - name: enable docker
+      ansible.builtin.systemd_service:
+        name: docker.service
+        enabled: true
+        # state: started
 
-    - name: build & install cubiomes
-      ansible.builtin.shell:
-        chdir: /home/sfw/sfw/cubiomes
-        cmd: "make && make g0 && cp ./a.out ../bin/cubiomes"
+# todo need to run below w/ different hosts
 
-    - name: compile sfw
-      ansible.builtin.shell:
-        chdir: /home/sfw/sfw
-        cmd: "make all"
+###############################################################################
+## TODO NOT DRY TODO NOT DRY TODO NOT DRY TODO NOT DRY TODO NOT DRY  TODO NO ##
+###############################################################################
 
-    - name: pull docker image for minecraft server
-      community.docker.docker_image:
-        name: itzg/minecraft-server
-        source: pull
+    - name: create user
+      ansible.builtin.user:
+        name: sfw
+        group: wheel
+        groups: docker
+        generate_ssh_key: yes
+
+    - name: install local pubkey on sfw user
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
+        path: /home/sfw/.ssh/authorized_keys
+        backup: yes
+
+    - name: configure sudo
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        regexp: "Same thing without a password"
+        line: "%wheel ALL=(ALL:ALL) NOPASSWD: ALL"
+
+    - name: reboot
+      ansible.builtin.reboot:
