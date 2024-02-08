@@ -2,15 +2,22 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"sfw/lib"
 )
 
+var sigC = make(chan os.Signal, 1)
+var asyncErrC = make(chan error)
+
 func init() {
 	lib.FlagParse()
+	signal.Notify(sigC, os.Interrupt)
 }
 
 func main() {
@@ -19,19 +26,41 @@ func main() {
 	}
 }
 
+// todo handle sigint
 func run() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	go asdf(ctx)
+
+	select {
+	case <-ctx.Done():
+	case <-sigC:
+	case err := <-asyncErrC:
+		cancel()
+		return err
+	}
+
+	cancel()
+	return nil
+}
+
+func asdf(ctx context.Context) {
 	listener, err := net.Listen("tcp", *lib.FlagLogSrv)
 	if err != nil {
-		return err
+		<-asyncErrC
+		return
 	}
 	log.Printf("info listening on %s", *lib.FlagLogSrv)
 
 	for {
-		so, err := listener.Accept()
-		if err != nil {
-			return err
-		}
+		soC := make(chan net.Conn)
 		go func() {
+			so, err := listener.Accept()
+			if err != nil {
+				asyncErrC <- err
+				return
+			}
+			soC <- so
+
 			var re bytes.Buffer
 			io.Copy(&re, so)
 			fmt.Printf("%s | %s", so.RemoteAddr(), re.String())
@@ -39,7 +68,11 @@ func run() error {
 				log.Printf("%v", err)
 			}
 		}()
-	}
 
-	// return nil
+		select {
+		case <-ctx.Done():
+			return
+		case <-soC:
+		}
+	}
 }
