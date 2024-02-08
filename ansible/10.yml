@@ -48,6 +48,7 @@
       ansible.builtin.blockinfile:
         block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
         path: /home/sfw/.ssh/authorized_keys
+        create: true
         backup: yes
 
 ###############################################################################
@@ -63,7 +64,6 @@
 
     - name: reboot
       ansible.builtin.reboot:
-        path: /root/has_rebooted
       when: not stat_rebooted.stat.exists
 
     - name: remember this reboot
