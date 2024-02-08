@@ -1,5 +1,5 @@
 ---
-- name: dilate updates and packages
+- name: configure sshd and disable firewall
   hosts: sfw
   remote_user: root
   tasks:

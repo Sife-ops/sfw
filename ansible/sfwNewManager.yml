@@ -1,6 +1,0 @@
----
-- import_playbook: 00.yml
-- import_playbook: 70.yml
-- import_playbook: 71.yml
-# - import_playbook: 72.yml
-- import_playbook: 10.yml

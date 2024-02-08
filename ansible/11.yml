@@ -1,115 +1,106 @@
 ---
-- name: generate wireguard keys
-  hosts: sfw
-  remote_user: root
-  tasks:
-    # todo put wireguard keys on local
-    - name: create wireguard dir
-      ansible.builtin.file:
-        path: /wg
-        state: directory
-    - name: generate wireguard keys
-      ansible.builtin.shell:
-        cmd: "wg genkey | (umask 0077 && tee keyprivate) | wg pubkey > keypublic"
-        chdir: /wg
-    - name: backup wireguard private keys
-      ansible.builtin.fetch:
-        src: /wg/keyprivate
-        dest: ./tmp
-    - name: backup wireguard public keys
-      ansible.builtin.fetch:
-        src: /wg/keypublic
-        dest: ./tmp
-
-- name: set up wireguard for manager
+- name: manager setup [oneshot] [debian]
   hosts: sfw_manager
   remote_user: root
   tasks:
-    - name: set peers
-      set_fact:
-        peers: "{{ groups['sfw'] | difference([inventory_hostname]) }}"
 
-    - name: copy node public keys
-      ansible.builtin.file:
-        path: "/wg/{{ item }}"
-        state: directory
-      loop: "{{ peers }}"
+    # - name: stop
+    #   meta: end_play
 
-    - name: copy node public keys
-      ansible.builtin.copy:
-        src: "./tmp/{{ item }}/wg/keypublic"
-        dest: "/wg/{{ item }}/keypublic"
-      loop: "{{ peers }}"
+    ## todo check free instead of file path
+    - name: check if u have swap
+      ansible.builtin.stat:
+        path: "/swapfile"
+      register: stat_swap
 
-    - name: configure wireguard for manager
-      ansible.builtin.copy:
-        content: |
-          [Interface]
-          Address = {{ sfwip }}/24
-          ListenPort = 51871
-          PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/wg/keyprivate') }}
-          # peers
-        dest: "/etc/wireguard/wg0.conf"
+    - name: create swapfile
+      ansible.builtin.shell:
+        # chdir: /home/sfw/sfw
+        cmd: "dd if=/dev/zero of=/swapfile bs=1M count=1k status=progress"
+      when: not stat_swap.stat.exists
 
-    - name: configure wireguard peers for manager
+    - name: chmod swapfile
+      ansible.builtin.shell:
+        cmd: "chmod 0600 /swapfile"
+      when: not stat_swap.stat.exists
+
+    - name: make swap
+      ansible.builtin.shell:
+        cmd: "mkswap -U clear /swapfile"
+      when: not stat_swap.stat.exists
+
+    - name: enable swap
+      ansible.builtin.shell:
+        cmd: "swapon /swapfile"
+      when: not stat_swap.stat.exists
+
+    - name: add swap to fstab
       ansible.builtin.blockinfile:
-        insertafter: "# peers"
-        path: "/etc/wireguard/wg0.conf"
+        path: /etc/fstab
         block: |
-          [Peer]
-          PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/wg/keypublic') }}
-          AllowedIPs = {{ hostvars[item].sfwip }}/32
-          Endpoint = {{ item }}:51871
-        marker: "# {mark} peer {{ item }}"
-      loop: "{{ peers }}"
+          /swapfile none swap defaults 0 0
+      when: not stat_swap.stat.exists
 
-- name: set up wireguard for nodes
-  hosts: sfw_node
-  remote_user: root
-  tasks:
-    - name: copy manager public key
-      ansible.builtin.file:
-        path: "/wg/{{ item }}"
-        state: directory
-      when: hostvars[item].sfwip == "10.0.0.10"
-      loop: "{{ groups['sfw'] }}"
+###############################################################################
+###############################################################################
+###############################################################################
 
-    - name: copy manager public key
-      ansible.builtin.copy:
-        src: "./tmp/{{ item }}/wg/keypublic"
-        dest: "/wg/{{ item }}/keypublic"
-      when: hostvars[item].sfwip == "10.0.0.10"
-      loop: "{{ groups['sfw'] }}"
+    - name: full system upgrade
+      ansible.builtin.apt:
+        name: "*"
+        state: latest
 
-    - name: configure wireguard for node
-      ansible.builtin.copy:
-        content: |
-          [Interface]
-          Address = {{ sfwip }}/24
-          ListenPort = 51871
-          PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/wg/keyprivate') }}
-          # peers
-        dest: "/etc/wireguard/wg0.conf"
+    - name: install ca-certs (docker)
+      ansible.builtin.apt:
+        name: ca-certificates
+        state: present
 
-    - name: configure wireguard manager for node
-      ansible.builtin.blockinfile:
-        insertafter: "# peers"
-        path: "/etc/wireguard/wg0.conf"
-        block: |
-          [Peer]
-          PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/wg/keypublic') }}
-          AllowedIPs = {{ hostvars[item].sfwip }}/32
-          Endpoint = {{ item }}:51871
-        marker: "# {mark} peer {{ item }}"
-      when: hostvars[item].sfwip == "10.0.0.10"
-      loop: "{{ groups['sfw'] }}"
+    - name: download docker apt keyring
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
 
-- name: enable wireguard
-  hosts: sfw
-  remote_user: root
-  tasks:
-    - name: enable custom wireguard service
-      ansible.builtin.systemd_service:
-        name: "wg-quick@wg0"
-        state: restarted
-        enabled: true
+    - name: configure docker apt repository
+      ansible.builtin.apt_repository:
+        # repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/myrepo.asc] https://download.example.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable"
+        state: present
+
+    - name: update apt cache (docker)
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: install manager tools
+      ansible.builtin.apt:
+        pkg:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+          # - make
+          # - golang
+          - ansible
+          - tmux
+          - postgresql-client
+          - python3-psycopg
+          - wireguard-tools
+
+    # # todo MUST FETCH FROM GH
+    # # todo MUST FETCH FROM GH
+    # # todo MUST FETCH FROM GH
+    # - name: install loggerino
+    #   remote_user: sfw
+    #   ansible.builtin.copy:
+    #     src: ../bin/loggerino
+    #     dest: /home/sfw/loggerino
+    #     mode: +x
+
+    - name: configure sudo
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        regexp: "%sudo.*ALL=(ALL:ALL).*ALL"
+        line: "%sudo ALL=(ALL:ALL) NOPASSWD: ALL"
+
+    - name: reboot
+      ansible.builtin.reboot:

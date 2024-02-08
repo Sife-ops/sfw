@@ -1,55 +1,50 @@
 ---
-- name: set up ssh for manager
-  hosts: sfw_manager
-  remote_user: root
-  tasks:
-    - name: generate ssh key for root
-      ansible.builtin.user:
-        name: root
-        generate_ssh_key: yes
-
-    - name: backup manager ssh pubkey (sfw)
-      ansible.builtin.fetch:
-        src: /home/sfw/.ssh/id_rsa.pub
-        dest: ./tmp/sfw_manager_rsa_sfw
-        flat: yes
-    - name: backup manager ssh pubkey (root)
-      ansible.builtin.fetch:
-        src: /root/.ssh/id_rsa.pub
-        dest: ./tmp/sfw_manager_rsa_root
-        flat: yes
-
-    - name: delete ssh known hosts (sfw)
-      ansible.builtin.file:
-        path: /home/sfw/.ssh/known_hosts
-        state: absent
-    - name: delete ssh known hosts (root)
-      ansible.builtin.file:
-        path: /root/.ssh/known_hosts
-        state: absent
-
-- name: set up ssh for nodes
+- name: install updates and packages for nodes
   hosts: sfw_node
   remote_user: root
   tasks:
-    - name: install manager ssh pubkeys (sfw)
-      ansible.builtin.blockinfile:
-        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_sfw') }}"
-        path: /home/sfw/.ssh/authorized_keys
-        backup: yes
-    - name: install manager ssh pubkeys (sfw)
-      ansible.builtin.blockinfile:
-        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_sfw') }}"
-        path: /root/.ssh/authorized_keys
-        backup: yes
+    - name: full system upgrade
+      community.general.pacman:
+        update_cache: true
+        upgrade: true
+    - name: install wireguard
+      community.general.pacman:
+        name: wireguard-tools
+        state: present
+    - name: install golang
+      community.general.pacman:
+        name: go
+        state: present
+    - name: install docker
+      community.general.pacman:
+        name: docker
+        state: present
+    - name: enable docker
+      ansible.builtin.systemd_service:
+        name: docker.service
+        enabled: true
+        # state: started
 
-    - name: install manager ssh pubkeys (root)
-      ansible.builtin.blockinfile:
-        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_root') }}"
-        path: /home/sfw/.ssh/authorized_keys
-        backup: yes
-    - name: install manager ssh pubkeys (root)
-      ansible.builtin.blockinfile:
-        block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_root') }}"
-        path: /root/.ssh/authorized_keys
-        backup: yes
+    - name: configure sudo for a node
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        regexp: "Same thing without a password"
+        line: "%wheel ALL=(ALL:ALL) NOPASSWD: ALL"
+
+    # todo 'force reboot' extra option
+    # check for 'rebooted' file
+    - name: check if the computer has ever rebooted
+      ansible.builtin.stat:
+        path: "/root/has_rebooted"
+      register: stat_rebooted
+
+    - name: reboot
+      ansible.builtin.reboot:
+        path: /root/has_rebooted
+      when: not stat_rebooted.stat.exists
+
+    - name: remember this reboot
+      ansible.builtin.file:
+        path: /root/has_rebooted
+      when: not stat_rebooted.stat.exists
+

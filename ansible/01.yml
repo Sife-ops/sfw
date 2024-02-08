@@ -1,36 +1,8 @@
 ---
-- name: dilate updates and packages
-  hosts: sfw_node_new
+- name: create sfw user and install local pubkey on it
+  hosts: sfw
   remote_user: root
   tasks:
-    - name: full system upgrade
-      community.general.pacman:
-        update_cache: true
-        upgrade: true
-    - name: install wireguard
-      community.general.pacman:
-        name: wireguard-tools
-        state: present
-    - name: install golang
-      community.general.pacman:
-        name: go
-        state: present
-    - name: install docker
-      community.general.pacman:
-        name: docker
-        state: present
-    - name: enable docker
-      ansible.builtin.systemd_service:
-        name: docker.service
-        enabled: true
-        # state: started
-
-# todo need to run below w/ different hosts
-
-###############################################################################
-## TODO NOT DRY TODO NOT DRY TODO NOT DRY TODO NOT DRY TODO NOT DRY  TODO NO ##
-###############################################################################
-
     - name: create user
       ansible.builtin.user:
         name: sfw
@@ -38,17 +10,9 @@
         groups: docker
         generate_ssh_key: yes
 
+    # local pubkey for root has already been copied by ur provider
     - name: install local pubkey on sfw user
       ansible.builtin.blockinfile:
         block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
         path: /home/sfw/.ssh/authorized_keys
         backup: yes
-
-    - name: configure sudo
-      ansible.builtin.lineinfile:
-        path: /etc/sudoers
-        regexp: "Same thing without a password"
-        line: "%wheel ALL=(ALL:ALL) NOPASSWD: ALL"
-
-    - name: reboot
-      ansible.builtin.reboot:
