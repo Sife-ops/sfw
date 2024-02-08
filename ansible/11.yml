@@ -2,8 +2,6 @@
 - name: manager setup [oneshot] [debian]
   hosts: sfw_manager
   remote_user: root
-  vars:
-    reboot: "{{ (reboot == 'yes') | ternary('no', 'yes') }}"
   tasks:
 
     # - name: lmao
@@ -17,28 +15,23 @@
       ansible.builtin.stat:
         path: "/swapfile"
       register: stat_swap
-
     - name: create swapfile
       ansible.builtin.shell:
         # chdir: /home/sfw/sfw
         cmd: "dd if=/dev/zero of=/swapfile bs=1M count=1k status=progress"
       when: not stat_swap.stat.exists
-
     - name: chmod swapfile
       ansible.builtin.shell:
         cmd: "chmod 0600 /swapfile"
       when: not stat_swap.stat.exists
-
     - name: make swap
       ansible.builtin.shell:
         cmd: "mkswap -U clear /swapfile"
       when: not stat_swap.stat.exists
-
     - name: enable swap
       ansible.builtin.shell:
         cmd: "swapon /swapfile"
       when: not stat_swap.stat.exists
-
     - name: add swap to fstab
       ansible.builtin.blockinfile:
         path: /etc/fstab
@@ -105,5 +98,9 @@
         mode: +x
 
     - name: reboot
+      ansible.builtin.set_fact:
+        reboot: False
+      when: reboot is undefined
+    - name: reboot
       ansible.builtin.reboot:
-      when: reboot == 'yes'
+      when: reboot

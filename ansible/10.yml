@@ -2,9 +2,14 @@
 - name: install updates and packages for nodes
   hosts: sfw_node
   remote_user: root
-  vars:
-    reboot: "{{ (reboot == 'yes') | ternary('yea', 'no') }}"
   tasks:
+
+    # - name: asdf2
+    #   debug:
+    #     var: reboot
+    # - name: stop
+    #   meta: end_play
+
     - name: full system upgrade
       community.general.pacman:
         update_cache: true
@@ -37,8 +42,12 @@
       register: stat_rebooted
 
     - name: reboot
+      ansible.builtin.set_fact:
+        reboot: False
+      when: reboot is undefined
+    - name: reboot
       ansible.builtin.reboot:
-      when: reboot == 'yes' or not stat_rebooted.stat.exists
+      when: reboot or (not stat_rebooted.stat.exists)
 
     - name: remember this computer has rebooted
       ansible.builtin.file:
