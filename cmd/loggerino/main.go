@@ -29,17 +29,16 @@ func main() {
 // todo handle sigint
 func run() error {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go acceptSockets(ctx)
 
 	select {
 	case <-ctx.Done():
 	case <-sigC:
 	case err := <-asyncErrC:
-		cancel()
 		return err
 	}
 
-	cancel()
 	return nil
 }
 
