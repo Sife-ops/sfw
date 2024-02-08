@@ -86,15 +86,15 @@
           - python3-psycopg
           - wireguard-tools
 
-    # # todo MUST FETCH FROM GH
-    # # todo MUST FETCH FROM GH
-    # # todo MUST FETCH FROM GH
-    # - name: install loggerino
-    #   remote_user: sfw
-    #   ansible.builtin.copy:
-    #     src: ../bin/loggerino
-    #     dest: /home/sfw/loggerino
-    #     mode: +x
+    # todo MUST FETCH FROM GH
+    # todo MUST FETCH FROM GH
+    # todo MUST FETCH FROM GH
+    - name: install loggerino
+      remote_user: sfw
+      ansible.builtin.copy:
+        src: ../bin/loggerino
+        dest: /home/sfw/loggerino
+        mode: +x
 
 ###############################################################################
 ## NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY N ##
