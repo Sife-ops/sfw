@@ -127,5 +127,6 @@
 ## NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY NOT DRY N ##
 ###############################################################################
 
+    # todo optional reboot
     - name: reboot
       ansible.builtin.reboot:

@@ -29,7 +29,7 @@ func main() {
 // todo handle sigint
 func run() error {
 	ctx, cancel := context.WithCancel(context.Background())
-	go asdf(ctx)
+	go acceptSockets(ctx)
 
 	select {
 	case <-ctx.Done():
@@ -43,7 +43,7 @@ func run() error {
 	return nil
 }
 
-func asdf(ctx context.Context) {
+func acceptSockets(ctx context.Context) {
 	listener, err := net.Listen("tcp", *lib.FlagLogSrv)
 	if err != nil {
 		<-asyncErrC
@@ -72,6 +72,7 @@ func asdf(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		// case so := <-soC:
 		case <-soC:
 		}
 	}
