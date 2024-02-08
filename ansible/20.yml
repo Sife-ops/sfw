@@ -36,20 +36,24 @@
       ansible.builtin.blockinfile:
         block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_sfw') }}"
         path: /home/sfw/.ssh/authorized_keys
+        marker: "# {mark} MANAGER SFW PUBKEY TO SFW"
         backup: yes
     - name: install manager ssh pubkeys (sfw)
       ansible.builtin.blockinfile:
         block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_sfw') }}"
         path: /root/.ssh/authorized_keys
+        marker: "# {mark} MANAGER SFW PUBKEY TO ROOT"
         backup: yes
 
     - name: install manager ssh pubkeys (root)
       ansible.builtin.blockinfile:
         block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_root') }}"
         path: /home/sfw/.ssh/authorized_keys
+        marker: "# {mark} MANAGER ROOT PUBKEY TO SFW"
         backup: yes
     - name: install manager ssh pubkeys (root)
       ansible.builtin.blockinfile:
         block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_root') }}"
         path: /root/.ssh/authorized_keys
+        marker: "# {mark} MANAGER ROOT PUBKEY TO ROOT"
         backup: yes

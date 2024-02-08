@@ -1,6 +1,6 @@
 ---
 - name: compile sources, pull mcs container
-  hosts: sfw_node_new
+  hosts: sfw_node
   remote_user: sfw
   tasks:
     - name: build & install cubiomes
