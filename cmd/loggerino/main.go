@@ -30,7 +30,9 @@ func main() {
 func run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go acceptSockets(ctx)
+	for i := 0; i < 10; i++ {
+		go acceptSockets(ctx)
+	}
 
 	select {
 	case <-ctx.Done():
