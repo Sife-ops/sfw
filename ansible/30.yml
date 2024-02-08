@@ -14,4 +14,4 @@
       ansible.builtin.copy:
         src: "./hosts"
         dest: "/home/sfw/sfw/ansible/hosts"
-        # force: false
+        force: false
