@@ -119,7 +119,7 @@
       ansible.builtin.blockinfile:
         block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
         path: /home/sfw/.ssh/authorized_keys
-        marker: "# {mark} LOCAL PUBKEY"
+        marker: "# {mark} {{ lookup('ansible.builtin.env', 'HOSTNAME') }} PUBKEY"
         create: true
         backup: yes
 
