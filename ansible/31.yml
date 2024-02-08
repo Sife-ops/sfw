@@ -3,10 +3,10 @@
   hosts: sfw_node
   remote_user: sfw
   tasks:
-    - name: build & install cubiomes
-      ansible.builtin.shell:
-        chdir: /home/sfw/sfw/cubiomes
-        cmd: "make && make g0 && cp ./a.out ../bin/cubiomes"
+    # - name: build & install cubiomes
+    #   ansible.builtin.shell:
+    #     chdir: /home/sfw/sfw/cubiomes
+    #     cmd: "make && make g0 && cp ./a.out ../bin/cubiomes"
 
     - name: compile sfw
       ansible.builtin.shell:
