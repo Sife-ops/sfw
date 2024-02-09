@@ -1,21 +1,36 @@
 package lib
 
 import (
-	"context"
+	"errors"
 	"fmt"
+	"log"
+	"net"
 	"os"
+	"os/signal"
 	"time"
-
-	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
 )
 
-type Logger struct{}
+type Logger struct {
+	Conn net.Conn
+}
 
-var warn = 10
+var LogErrC = make(chan error, 10)
+var reconnectC = make(chan struct{}, 1)
+var sigC = make(chan os.Signal, 1)
 
 func init() {
 	FlagParse()
+	signal.Notify(sigC, os.Interrupt)
+	go DialateLogger()
+}
+
+func NewLogger() Logger {
+	dialer := net.Dialer{Timeout: 3 * time.Second}
+	conn, err := dialer.Dial("tcp", *FlagLogSrv)
+	if err != nil {
+		LogErrC <- err
+	}
+	return Logger{Conn: conn}
 }
 
 // todo split log files
@@ -23,59 +38,59 @@ func (O Logger) Write(p []byte) (n int, err error) {
 	fmt.Printf(string(p))
 
 	go func() {
-		conn, _, err := websocket.Dial(context.TODO(), fmt.Sprintf("ws://%s", *FlagWsSrv), nil)
-		if err != nil {
-			if warn%20 == 0 {
-				fmt.Printf("%v\n", err)
-			}
-			warn++
+		if O.Conn == nil {
+			LogErrC <- errors.New("conn nil")
 			return
 		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		m := struct {
-			Hostname string
-			Message  string
-		}{
-			Hostname: func() string {
-				name, err := os.Hostname()
-				if err != nil {
-					return "unknown"
-				}
-				return name
-			}(),
-			Message: string(p),
-		}
-		if err := wsjson.Write(ctx, conn, m); err != nil {
-			fmt.Printf("%v\n", err)
-		}
-
-		if err := conn.CloseNow(); err != nil {
-			fmt.Printf("%v\n", err)
+		if _, err := O.Conn.Write(p); err != nil {
+			LogErrC <- err
+			return
 		}
 	}()
 
-	// go func() {
-	// 	dialer := net.Dialer{Timeout: 3 * time.Second}
-	// 	conn, err := dialer.Dial("tcp", *FlagLogSrv)
-	// 	if err != nil {
-	// 		if warn%20 == 0 {
-	// 			fmt.Printf("%v\n", err)
-	// 		}
-	// 		warn++
-	// 		return
-	// 	}
-
-	// 	if _, err := conn.Write(p); err != nil {
-	// 		fmt.Printf("%v\n", err)
-	// 	}
-
-	// 	if err := conn.Close(); err != nil {
-	// 		fmt.Printf("%v\n", err)
-	// 	}
-	// }()
-
 	return len(p), nil
+}
+
+func DialateLogger() {
+	for {
+		select {
+		case logErr := <-LogErrC:
+			cC := make(chan net.Conn)
+
+			go func() {
+				if len(reconnectC) > 0 {
+					return
+				}
+				reconnectC <- struct{}{}
+				fmt.Printf("%v\n", logErr)
+
+				dialer := net.Dialer{Timeout: 3 * time.Second}
+				conn, err := dialer.Dial("tcp", *FlagLogSrv)
+				if err != nil {
+					for len(LogErrC) > 0 {
+						<-LogErrC
+					}
+					LogErrC <- err
+					return
+				}
+				cC <- conn
+			}()
+
+			select {
+			case <-sigC:
+				return
+			case c := <-cC:
+				log.SetOutput(Logger{Conn: c})
+				// SfwLogger = Logger{Conn: c}
+			case <-time.After(3 * time.Second):
+			}
+
+			for len(reconnectC) > 0 {
+				<-reconnectC
+			}
+
+		case <-sigC:
+			return
+		}
+	}
 }

@@ -14,13 +14,17 @@ var asyncIdleC = make(chan struct{}, 1)
 var asyncStopC = make(chan struct{})
 var hysteresisMax = 9
 var hysteresisMin = 6
+var reconnectC = make(chan struct{}, 1)
 var sigC = make(chan os.Signal, 1)
 var threadsC chan struct{}
 
 func init() {
-	log.SetOutput(lib.Logger{})
 	lib.FlagParse()
+
+	log.SetOutput(lib.NewLogger())
+
 	threadsC = make(chan struct{}, *lib.FlagThreads)
+
 	signal.Notify(sigC, os.Interrupt)
 	if *lib.FlagCwLim {
 		asyncIdleC <- struct{}{}

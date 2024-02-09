@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -12,8 +10,9 @@ import (
 	"sfw/lib"
 )
 
-var sigC = make(chan os.Signal, 1)
 var asyncErrC = make(chan error)
+var sigC = make(chan os.Signal, 1)
+var socksM = make(map[net.Conn]bool)
 
 func init() {
 	lib.FlagParse()
@@ -30,12 +29,11 @@ func main() {
 func run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	for i := 0; i < 10; i++ {
-		go acceptSockets(ctx)
-	}
+
+	go acceptSockets(ctx)
 
 	select {
-	case <-ctx.Done():
+	// case <-ctx.Done():
 	case <-sigC:
 	case err := <-asyncErrC:
 		return err
@@ -52,9 +50,8 @@ func acceptSockets(ctx context.Context) {
 	}
 	log.Printf("info listening on %s", *lib.FlagLogSrv)
 
-	// todo multiple listener.Accept?
 	for {
-		soC := make(chan net.Conn)
+		soC := make(chan net.Conn, 1)
 		go func() {
 			so, err := listener.Accept()
 			if err != nil {
@@ -62,19 +59,41 @@ func acceptSockets(ctx context.Context) {
 				return
 			}
 			soC <- so
-
-			var re bytes.Buffer
-			io.Copy(&re, so)
-			fmt.Printf("%s | %s", so.RemoteAddr(), re.String())
-			if err := so.Close(); err != nil {
-				log.Printf("%v", err)
-			}
 		}()
 
 		select {
 		case <-ctx.Done():
 			return
-		case <-soC:
+		case so := <-soC:
+			socksM[so] = true
+			fmt.Printf("%s | connected\n", so.RemoteAddr())
+			go readSocket(ctx, so)
+		}
+	}
+}
+
+func readSocket(ctx context.Context, so net.Conn) {
+	for {
+		done := make(chan bool)
+		errC := make(chan error)
+		go func() {
+			b := make([]byte, 1024)
+			mLen, err := so.Read(b)
+			if err != nil {
+				errC <- err
+			}
+			fmt.Printf("%s | %s", so.RemoteAddr(), b[:mLen])
+			done <- true
+		}()
+
+		select {
+		case <-ctx.Done():
+			return
+		case err := <-errC:
+			log.Printf("%v", err)
+			delete(socksM, so)
+			return
+		case <-done:
 		}
 	}
 }

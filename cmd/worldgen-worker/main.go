@@ -17,8 +17,10 @@ var generateResetC = make(chan struct{}, 1)
 var sigC = make(chan os.Signal, 1)
 
 func init() {
-	log.SetOutput(lib.Logger{})
 	lib.FlagParse()
+
+	log.SetOutput(lib.NewLogger())
+
 	signal.Notify(sigC, os.Interrupt)
 }
 
