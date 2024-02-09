@@ -1,5 +1,5 @@
 ---
-- name: configure sshd and disable firewall
+- name: configure sshd, disable firewall, create user
   hosts: sfw
   remote_user: root
   vars:
