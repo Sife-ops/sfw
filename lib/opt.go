@@ -13,6 +13,7 @@ var FlagPass = flag.String("db_pass", "seed", "db password")
 var FlagThreads = flag.Int("t", 1, "threads")
 var FlagUser = flag.String("db_user", "seed", "db user")
 var FlagWebSrv = flag.String("web_srv", "10.0.0.10:3000", "web addr")
+var FlagWsSrv = flag.String("ws_srv", "10.0.0.10:51871", "ws addr")
 
 func FlagParse() {
 	flag.Parse()

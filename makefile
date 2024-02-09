@@ -1,4 +1,4 @@
-all: cw ww log web
+all: cw ww log web mon
 
 cw:
 	GOOS=linux GOARCH=amd64 go build -o ./bin/cw ./cmd/cubiomes-worker/main.go
@@ -11,3 +11,6 @@ log:
 
 web:
 	GOOS=linux GOARCH=amd64 go build -o ./bin/web ./cmd/web/main.go
+
+mon:
+	GOOS=linux GOARCH=amd64 go build -o ./bin/mon ./cmd/monitor/main.go

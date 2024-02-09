@@ -93,8 +93,8 @@
     - name: install loggerino
       remote_user: sfw
       ansible.builtin.copy:
-        src: ../bin/loggerino
-        dest: /home/sfw/loggerino
+        src: ../bin/mon
+        dest: /home/sfw/mon
         mode: +x
 
     - name: reboot
