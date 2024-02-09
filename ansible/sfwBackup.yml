@@ -17,7 +17,7 @@
         dest: ./tmp/
         flat: yes
 
-- import_playbook: 71.yml
+- import_playbook: 12.yml
 
 
 # - name: transfer postgres files
