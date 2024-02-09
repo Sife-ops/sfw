@@ -14,8 +14,14 @@ import (
 	"nhooyr.io/websocket/wsjson"
 )
 
+type msg struct {
+	Hostname string
+	Message  string
+}
+
 var asyncErrC = make(chan error)
 var sigC = make(chan os.Signal, 1)
+var msgC = make(chan msg, 10)
 
 func init() {
 	lib.FlagParse()
@@ -42,15 +48,19 @@ func run() error {
 		}
 	}()
 
-	select {
-	case err := <-asyncErrC:
-		// todo return nil if ErrServerClosed?
-		return err
-	case <-sigC:
-		if err := server.Shutdown(context.TODO()); err != nil {
+	for {
+		select {
+		case m := <-msgC:
+			fmt.Printf("%s | %s", m.Hostname, m.Message)
+		case err := <-asyncErrC:
+			// todo return nil if ErrServerClosed?
 			return err
+		case <-sigC:
+			if err := server.Shutdown(context.TODO()); err != nil {
+				return err
+			}
+			return nil
 		}
-		return nil
 	}
 }
 
@@ -64,15 +74,11 @@ func acceptWebsocket(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var m struct {
-		Hostname string
-		Message  string
-	}
+	var m msg
 	if err := wsjson.Read(ctx, conn, &m); err != nil {
 		log.Printf("%v", err)
 	}
-
-	fmt.Printf("%s | %s", m.Hostname, m.Message)
+	msgC <- m
 
 	if err := conn.CloseNow(); err != nil {
 		log.Printf("%v", err)
