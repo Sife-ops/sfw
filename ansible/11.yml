@@ -93,8 +93,8 @@
     - name: install monitor
       remote_user: sfw
       ansible.builtin.copy:
-        src: ../bin/mon
-        dest: /home/sfw/mon
+        src: ../bin/loggerino
+        dest: /home/sfw/loggerino
         mode: +x
 
     - name: reboot
