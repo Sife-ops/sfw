@@ -28,15 +28,6 @@ func main() {
 }
 
 func run() error {
-	// gs := []lib.GodSeed{}
-	// if err := lib.Db.Select(&gs,
-	// 	`SELECT *
-	// 	FROM seed`,
-	// ); err != nil {
-	// 	return err
-	// }
-	// log.Printf("%v", gs)
-
 	s := http.Server{
 		Addr:    *lib.FlagWebSrv,
 		Handler: http.HandlerFunc(serve),
@@ -55,6 +46,8 @@ func run() error {
 		return nil
 	}
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 // https://github.com/benhoyt/go-routing/blob/9a2fa7a643ecb5681f504b95064d948ee2177c9a/retable/route.go
 
@@ -99,14 +92,29 @@ func serve(w http.ResponseWriter, r *http.Request) {
 //go:embed template
 var fs embed.FS
 
+///////////////////////////////////////////////////////////////////////////////
+
 func root(w http.ResponseWriter, r *http.Request) {
+	seeds := []lib.GodSeed{}
+	if err := lib.Db.Select(&seeds,
+		`SELECT *
+		FROM seed`,
+	); err != nil {
+		log.Printf("0 %v", err)
+		http.Error(w, "database", http.StatusInternalServerError)
+		return
+	}
+	// log.Printf("%v", gs)
+
 	t, err := template.New("root.html").ParseFS(fs, "template/root.html")
 	if err != nil {
 		log.Printf("1 %v", err)
 		http.Error(w, "template", http.StatusInternalServerError)
 		return
 	}
-	if err := t.Execute(w, nil); err != nil {
+	if err := t.Execute(w, map[string]interface{}{
+		"seeds": seeds,
+	}); err != nil {
 		log.Printf("2 %v", err)
 		http.Error(w, "template", http.StatusInternalServerError)
 		return
