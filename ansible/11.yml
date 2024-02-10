@@ -1,14 +1,26 @@
 ---
-- name: pre-reboot (manager)
-  hosts: sfw_manager
+- name: pre-reboot
+  hosts: sfw
   remote_user: root
+  # gather_facts: no
   tasks:
+
+###############################################################################
+## debugging
 
     # - name: lmao
     #   debug:
-    #     var: reboot
+    #     var: inventory_hostname
+
+    # - name: lmao
+    #   debug:
+    #     var: inventory_hostname in groups['sfw_manager']
+
     # - name: stop
     #   meta: end_play
+
+###############################################################################
+## swap
 
     ## todo check free instead of file path
     - name: check if u have swap
@@ -40,14 +52,20 @@
       when: not stat_swap.stat.exists
 
 ###############################################################################
-###############################################################################
-###############################################################################
+## update
 
+    - name: update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
     - name: full system upgrade
       ansible.builtin.apt:
         name: "*"
         state: latest
-    - name: install ca-certs (docker)
+
+###############################################################################
+## docker
+
+    - name: install ca-certs for docker
       ansible.builtin.apt:
         name: ca-certificates
         state: present
@@ -60,47 +78,85 @@
         # repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/myrepo.asc] https://download.example.com/linux/ubuntu {{ ansible_distribution_release }} stable"
         repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable"
         state: present
-    - name: update apt cache (docker)
+    - name: update apt cache
       ansible.builtin.apt:
         update_cache: yes
-    - name: install manager tools
+
+###############################################################################
+## 
+
+    - name: install apt packages
       ansible.builtin.apt:
         pkg:
           - docker-ce
           - docker-ce-cli
           - containerd.io
-          - docker-buildx-plugin
-          - docker-compose-plugin
-          # - make
-          # - golang
-          - ansible
-          - tmux
-          - postgresql-client
-          - python3-psycopg
           - wireguard-tools
-    - name: add sfw to docker group
+          # - docker-buildx-plugin
+          # - docker-compose-plugin
+
+    - name: add sfw user to docker group
       ansible.builtin.user:
         name: sfw
         groups: docker
 
-###############################################################################
-###############################################################################
-###############################################################################
 
-    # todo MUST FETCH FROM GH
-    # todo MUST FETCH FROM GH
-    # todo MUST FETCH FROM GH
-    - name: install monitor
-      remote_user: sfw
-      ansible.builtin.copy:
-        src: ../bin/loggerino
-        dest: /home/sfw/loggerino
-        mode: +x
+###############################################################################
+## golang
+
+    # todo ansible.cfg variable
+    - name: download golang
+      ansible.builtin.get_url:
+        url: https://go.dev/dl/go1.22.0.linux-amd64.tar.gz
+        dest: /root/
+      register: golang
+
+    - name: remove debian golang package
+      ansible.builtin.apt:
+        state: absent
+        pkg:
+          - golang
+          - golang-go
+      when: golang.changed
+
+    - name: install make
+      ansible.builtin.apt:
+        name: make
+        state: present
+      when: golang.changed
+
+    - name: install golang
+      ansible.builtin.shell: 
+        chdir: /root
+        cmd: "rm -rf /usr/local/go && tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz"
+      when: golang.changed
+
+    - name: add golang to path
+      ansible.builtin.blockinfile:
+        path: /home/sfw/.profile
+        block: |
+          PATH=$PATH:/usr/local/go/bin
+      when: golang.changed
+
+###############################################################################
+## reboot
+
+    - name: check if the computer has ever rebooted
+      ansible.builtin.stat:
+        path: /root/has_rebooted
+      register: stat_rebooted
 
     - name: reboot
       ansible.builtin.set_fact:
         reboot: False
       when: reboot is undefined
+
     - name: reboot
       ansible.builtin.reboot:
-      when: reboot
+      when: reboot or (not stat_rebooted.stat.exists)
+
+    - name: remember this computer has rebooted
+      ansible.builtin.file:
+        path: /root/has_rebooted
+        state: touch
+      when: not stat_rebooted.stat.exists

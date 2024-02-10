@@ -45,6 +45,7 @@
       ansible.builtin.set_fact:
         reboot: False
       when: reboot is undefined
+
     - name: reboot
       ansible.builtin.reboot:
       when: reboot or (not stat_rebooted.stat.exists)

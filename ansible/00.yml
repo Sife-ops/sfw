@@ -2,11 +2,9 @@
 - name: configure sshd, disable firewall, create user
   hosts: sfw
   remote_user: root
-  vars:
-    # todo wont work on on debian-likes?
-    # todo how to check for sudo or wheel
-    superGroup: "{{ (hostvars[inventory_hostname].ansible_distribution == 'Debian') | ternary('sudo', 'wheel') }}"
   tasks:
+
+    # todo combine this file with 01.yml
 
     # - name: lol
     #   debug:
@@ -42,14 +40,14 @@
     - name: configure sudo
       ansible.builtin.blockinfile:
         path: /etc/sudoers.d/ansible-sudoers
-        block: "%{{ superGroup }} ALL=(ALL:ALL) NOPASSWD: ALL"
+        block: "%sudo ALL=(ALL:ALL) NOPASSWD: ALL"
         create: true
         backup: yes
 
     - name: create sfw user
       ansible.builtin.user:
         name: sfw
-        group: "{{ superGroup }}"
+        group: "sudo"
         generate_ssh_key: yes
 
     # local pubkey for root has already been copied by ur provider
