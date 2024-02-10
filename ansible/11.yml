@@ -1,5 +1,5 @@
 ---
-- name: manager setup [oneshot] [debian]
+- name: pre-reboot (manager)
   hosts: sfw_manager
   remote_user: root
   tasks:

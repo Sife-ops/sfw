@@ -1,6 +1,6 @@
 module sfw
 
-go 1.21.6
+go 1.22.0
 
 require (
 	github.com/Tnze/go-mc v0.0.0

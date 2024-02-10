@@ -1,5 +1,5 @@
 ---
-- name: install updates and packages for nodes
+- name: pre-reboot (node)
   hosts: sfw_node
   remote_user: root
   tasks:
