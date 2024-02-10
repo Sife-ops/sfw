@@ -57,6 +57,8 @@
       ansible.builtin.blockinfile:
         path: /home/sfw/.ssh/authorized_keys
         block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
-        marker: "# {mark} {{ lookup('ansible.builtin.env', 'HOSTNAME') }} PUBKEY"
+        # todo hostname is blank
+        # marker: "# {mark} {{ lookup('ansible.builtin.env', 'HOSTNAME') }} PUBKEY"
+        marker: "# {mark} LOCAL PUBKEY"
         create: true
         backup: yes

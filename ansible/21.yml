@@ -29,18 +29,6 @@
       set_fact:
         peers: "{{ groups['sfw'] | difference([inventory_hostname]) }}"
 
-    - name: copy node public keys
-      ansible.builtin.file:
-        path: "/wg/{{ item }}"
-        state: directory
-      loop: "{{ peers }}"
-
-    - name: copy node public keys
-      ansible.builtin.copy:
-        src: "./tmp/{{ item }}/wg/keypublic"
-        dest: "/wg/{{ item }}/keypublic"
-      loop: "{{ peers }}"
-
     - name: configure wireguard for manager
       ansible.builtin.copy:
         content: |
@@ -67,20 +55,6 @@
   hosts: sfw_node
   remote_user: root
   tasks:
-    - name: copy manager public key
-      ansible.builtin.file:
-        path: "/wg/{{ item }}"
-        state: directory
-      when: hostvars[item].sfwip == "10.0.0.10"
-      loop: "{{ groups['sfw'] }}"
-
-    - name: copy manager public key
-      ansible.builtin.copy:
-        src: "./tmp/{{ item }}/wg/keypublic"
-        dest: "/wg/{{ item }}/keypublic"
-      when: hostvars[item].sfwip == "10.0.0.10"
-      loop: "{{ groups['sfw'] }}"
-
     - name: configure wireguard for node
       ansible.builtin.copy:
         content: |
