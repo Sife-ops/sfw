@@ -30,10 +30,9 @@ func run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go acceptSockets(ctx)
+	go runAsync(ctx)
 
 	select {
-	// case <-ctx.Done():
 	case <-sigC:
 	case err := <-asyncErrC:
 		return err
@@ -42,7 +41,7 @@ func run() error {
 	return nil
 }
 
-func acceptSockets(ctx context.Context) {
+func runAsync(ctx context.Context) {
 	listener, err := net.Listen("tcp", *lib.FlagLogSrv)
 	if err != nil {
 		<-asyncErrC
