@@ -21,7 +21,7 @@ var sigC = make(chan os.Signal, 1)
 func init() {
 	FlagParse()
 	signal.Notify(sigC, os.Interrupt)
-	go DialateLogger()
+	go dialateLogger()
 }
 
 func NewLogger() Logger {
@@ -51,7 +51,7 @@ func (O Logger) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func DialateLogger() {
+func dialateLogger() {
 	for {
 		select {
 		case logErr := <-LogErrC:

@@ -9,7 +9,6 @@
           - tmux
           - postgresql-client
           - python3-psycopg
-      when: inventory_hostname in groups['sfw_manager']
 
 
     - name: create pg_hba.conf

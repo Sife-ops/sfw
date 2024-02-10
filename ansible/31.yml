@@ -3,15 +3,29 @@
   hosts: sfw_node
   remote_user: sfw
   tasks:
+
+    # - name: debug
+    #   ansible.builtin.shell:
+    #     chdir: /home/sfw/sfw/cubiomes
+    #     cmd: "echo $PATH"
+    #   register: echo
+
+    # - name: debug
+    #   debug:
+    #     var: echo
+    
+    # - name: end play
+    #   meta: end_play
+
     # - name: build & install cubiomes
     #   ansible.builtin.shell:
     #     chdir: /home/sfw/sfw/cubiomes
     #     cmd: "make && make g0 && cp ./a.out ../bin/cubiomes"
 
-    - name: compile sfw
+    - name: compile worldgen worker
       ansible.builtin.shell:
         chdir: /home/sfw/sfw
-        cmd: "make all"
+        cmd: "PATH=$PATH:/usr/local/go/bin make ww"
 
     - name: pull docker image for minecraft server
       community.docker.docker_image:
