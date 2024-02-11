@@ -1,33 +1,49 @@
 ---
 - name: generate wireguard keys
-  hosts: sfw
+  hosts: self:sfw
   remote_user: root
   tasks:
+
+    - name: install wireguard tools
+      ansible.builtin.package:
+        name: wireguard-tools
+        state: present
+
     # todo put wireguard keys on local
     - name: create wireguard dir
       ansible.builtin.file:
-        path: /wg
+        path: /tmp/wg
         state: directory
     - name: generate wireguard keys
       ansible.builtin.shell:
         cmd: "wg genkey | (umask 0077 && tee keyprivate) | wg pubkey > keypublic"
-        chdir: /wg
+        chdir: /tmp/wg
     - name: backup wireguard private keys
       ansible.builtin.fetch:
-        src: /wg/keyprivate
+        src: /tmp/wg/keyprivate
         dest: ./tmp
     - name: backup wireguard public keys
       ansible.builtin.fetch:
-        src: /wg/keypublic
+        src: /tmp/wg/keypublic
         dest: ./tmp
 
 - name: set up wireguard for manager
   hosts: sfw_manager
   remote_user: root
   tasks:
-    - name: set peers
-      set_fact:
-        peers: "{{ groups['sfw'] | difference([inventory_hostname]) }}"
+
+###############################################################################
+## debugging
+
+    # - name: lmao
+    #   debug:
+    #     var: peers
+
+    # - name: end
+    #   meta: end_play
+
+###############################################################################
+## 
 
     - name: configure wireguard for manager
       ansible.builtin.copy:
@@ -35,7 +51,7 @@
           [Interface]
           Address = {{ sfwip }}/24
           ListenPort = 51871
-          PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/wg/keyprivate') }}
+          PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/tmp/wg/keyprivate') }}
           # peers
         dest: "/etc/wireguard/wg0.conf"
 
@@ -45,33 +61,50 @@
         path: "/etc/wireguard/wg0.conf"
         block: |
           [Peer]
-          PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/wg/keypublic') }}
+          PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/tmp/wg/keypublic') }}
           AllowedIPs = {{ hostvars[item].sfwip }}/32
-          Endpoint = {{ item }}:51871
+          Endpoint = {{ (item == 'localhost') | ternary(hostvars[item].wanip, item) }}:51871
         marker: "# {mark} peer {{ item }}"
-      loop: "{{ peers }}"
+      loop: "{{ groups['sfw_node'] + groups['self'] }}"
 
 - name: set up wireguard for nodes
-  hosts: sfw_node
+  hosts: self:sfw_node
   remote_user: root
+  become: true
   tasks:
+
+###############################################################################
+## debugging
+
+    # - name: lmao
+    #   debug:
+    #     var: inventory_hostname
+
+    # - name: end
+    #   meta: end_play
+
+###############################################################################
+## 
+
     - name: configure wireguard for node
+      # become: true
       ansible.builtin.copy:
         content: |
           [Interface]
           Address = {{ sfwip }}/24
           ListenPort = 51871
-          PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/wg/keyprivate') }}
+          PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/tmp/wg/keyprivate') }}
           # peers
         dest: "/etc/wireguard/wg0.conf"
 
-    - name: configure wireguard manager for node
+    - name: configure wireguard peer for node
+      # become: true
       ansible.builtin.blockinfile:
         insertafter: "# peers"
         path: "/etc/wireguard/wg0.conf"
         block: |
           [Peer]
-          PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/wg/keypublic') }}
+          PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/tmp/wg/keypublic') }}
           AllowedIPs = {{ hostvars[item].sfwip }}/32
           Endpoint = {{ item }}:51871
         marker: "# {mark} peer {{ item }}"
@@ -79,11 +112,16 @@
       loop: "{{ groups['sfw'] }}"
 
 - name: enable wireguard
-  hosts: sfw
+  hosts: self:sfw_manager:sfw_node
   remote_user: root
+  become: true
   tasks:
+
     - name: enable custom wireguard service
       ansible.builtin.systemd_service:
         name: "wg-quick@wg0"
         state: restarted
         enabled: true
+
+    # - name: end
+    #   meta: end_play
