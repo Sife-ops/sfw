@@ -1,6 +1,6 @@
 ---
 - name: generate wireguard keys
-  hosts: self:sfw
+  hosts: self:sfw_manager:sfw_node
   remote_user: root
   tasks:
 
@@ -87,7 +87,6 @@
 ## 
 
     - name: configure wireguard for node
-      # become: true
       ansible.builtin.copy:
         content: |
           [Interface]
@@ -98,7 +97,6 @@
         dest: "/etc/wireguard/wg0.conf"
 
     - name: configure wireguard peer for node
-      # become: true
       ansible.builtin.blockinfile:
         insertafter: "# peers"
         path: "/etc/wireguard/wg0.conf"
@@ -108,8 +106,7 @@
           AllowedIPs = {{ hostvars[item].sfwip }}/32
           Endpoint = {{ item }}:51871
         marker: "# {mark} peer {{ item }}"
-      when: hostvars[item].sfwip == "10.0.0.10"
-      loop: "{{ groups['sfw'] }}"
+      loop: "{{ groups['sfw_manager'] }}"
 
 - name: enable wireguard
   hosts: self:sfw_manager:sfw_node

@@ -1,4 +1,48 @@
 ---
+- name: configure sshd, create new user
+  hosts: sfw_manager:sfw_node
+  remote_user: root
+  # gather_facts: no
+  tasks:
+
+###############################################################################
+## sshd
+
+    - name: configure sshd
+      ansible.builtin.blockinfile:
+        insertafter: "^#PasswordAuthentication"
+        path: "/etc/ssh/sshd_config"
+        block: |
+          PasswordAuthentication no
+          AuthenticationMethods publickey
+      register: sshd
+
+    - name: restart sshd
+      ansible.builtin.systemd_service:
+        name: sshd.service
+        state: restarted
+      when: sshd.changed
+
+################################################################################
+## sfw user
+
+    - name: create sfw user
+      ansible.builtin.user:
+        name: sfw
+        group: sudo
+        generate_ssh_key: yes
+
+    # local pubkey for root has already been copied by ur provider
+    - name: install local pubkey on sfw user
+      ansible.builtin.blockinfile:
+        path: /home/sfw/.ssh/authorized_keys
+        block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
+        # todo hostname is blank
+        # marker: "# {mark} {{ lookup('ansible.builtin.env', 'HOSTNAME') }} PUBKEY"
+        marker: "# {mark} LOCAL PUBKEY"
+        create: true
+        backup: yes
+
 - name: set up ssh for manager
   hosts: sfw_manager
   remote_user: root
