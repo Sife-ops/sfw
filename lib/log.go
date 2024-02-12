@@ -19,14 +19,13 @@ var reconnectC = make(chan struct{}, 1)
 var sigC = make(chan os.Signal, 1)
 
 func init() {
-	FlagParse()
 	signal.Notify(sigC, os.Interrupt)
 	go dialateLogger()
 }
 
 func NewLogger() Logger {
 	dialer := net.Dialer{Timeout: 3 * time.Second}
-	conn, err := dialer.Dial("tcp", *FlagLogSrv)
+	conn, err := dialer.Dial("tcp", Cfg.Log.GetHost())
 	if err != nil {
 		LogErrC <- err
 	}
@@ -65,7 +64,7 @@ func dialateLogger() {
 				fmt.Printf("%v\n", logErr)
 
 				dialer := net.Dialer{Timeout: 3 * time.Second}
-				conn, err := dialer.Dial("tcp", *FlagLogSrv)
+				conn, err := dialer.Dial("tcp", Cfg.Log.GetHost())
 				if err != nil {
 					for len(LogErrC) > 0 {
 						<-LogErrC

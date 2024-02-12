@@ -38,7 +38,7 @@ func run() error {
 	log.Printf("starting monitor")
 
 	server := http.Server{
-		Addr:    *lib.FlagWsSrv,
+		Addr:    lib.Cfg.Websocket.GetHost(),
 		Handler: http.HandlerFunc(acceptWebsocket),
 	}
 

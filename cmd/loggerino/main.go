@@ -15,7 +15,6 @@ var sigC = make(chan os.Signal, 1)
 var socksM = make(map[net.Conn]bool)
 
 func init() {
-	lib.FlagParse()
 	signal.Notify(sigC, os.Interrupt)
 }
 
@@ -42,12 +41,12 @@ func run() error {
 }
 
 func runAsync(ctx context.Context) {
-	listener, err := net.Listen("tcp", *lib.FlagLogSrv)
+	listener, err := net.Listen("tcp", lib.Cfg.Log.GetHost())
 	if err != nil {
 		<-asyncErrC
 		return
 	}
-	log.Printf("info listening on %s", *lib.FlagLogSrv)
+	log.Printf("info listening on %s", lib.Cfg.Log.GetHost())
 
 	for {
 		soC := make(chan net.Conn, 1)

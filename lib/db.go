@@ -13,18 +13,25 @@ import (
 var Db *sqlx.DB
 
 func init() {
-	FlagParse()
+	if err := loadConfig(); err != nil {
+		log.Printf("%v", err)
+	}
 
 	var connStr string
-	if FlagPass != nil && len(*FlagPass) > 0 {
+	if len(Cfg.Postgres.GetPassword()) > 0 {
 		connStr = fmt.Sprintf(
 			"postgres://%s:%s@%s/%s?sslmode=disable",
-			*FlagUser, *FlagPass, *FlagHost, *FlagName,
+			Cfg.Postgres.GetUsername(),
+			Cfg.Postgres.GetPassword(),
+			Cfg.Postgres.GetHost(),
+			Cfg.Postgres.GetDatabase(),
 		)
 	} else {
 		connStr = fmt.Sprintf(
 			"postgres://%s@%s/%s?sslmode=disable",
-			*FlagUser, *FlagHost, *FlagName,
+			Cfg.Postgres.GetUsername(),
+			Cfg.Postgres.GetHost(),
+			Cfg.Postgres.GetDatabase(),
 		)
 	}
 

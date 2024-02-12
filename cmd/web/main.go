@@ -8,7 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
-	"sfw/gen/config"
+	"sfw/lib"
 	"strings"
 	"text/template"
 )
@@ -29,17 +29,9 @@ func main() {
 func run() error {
 	log.Printf("info starting gud web server")
 
-	cfg, err := config.LoadFromPath(context.Background(), "./pkl/amends.pkl")
-	if err != nil {
-		return err
-	}
-
-	log.Printf("debug %+v", cfg)
-	return nil
-
 	for {
 		s := http.Server{
-			Addr:    cfg.Web.GetHost(),
+			Addr:    lib.Cfg.Web.GetHost(),
 			Handler: http.HandlerFunc(serve),
 		}
 
