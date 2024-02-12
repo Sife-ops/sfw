@@ -10,11 +10,10 @@
 
     # - name: lmao
     #   debug:
-    #     var: inventory_hostname
+    #     var: ansible_distribution_release
 
-    # - name: lmao
-    #   debug:
-    #     var: inventory_hostname in groups['sfw_manager']
+    # - name: asdf
+    #   meta: end_play
 
 ##############################################################################
 ## firewall
@@ -97,9 +96,7 @@
         dest: /etc/apt/keyrings/docker.asc
     - name: configure docker apt repository
       ansible.builtin.apt_repository:
-        # repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/myrepo.asc] https://download.example.com/linux/ubuntu {{ ansible_distribution_release }} stable"
-        # todo USE ANSIBLE_DISTRIBUTION_RELEASE!!!
-        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable"
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
         state: present
     - name: update apt cache
       ansible.builtin.apt:
