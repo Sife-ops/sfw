@@ -2,7 +2,7 @@
 - name: clone sfw repository
   hosts: sfw_manager:sfw_node
   remote_user: sfw
-  gather_facts: no
+  # gather_facts: no
   vars:
     manager_sfwip: "{{ hostvars[groups['sfw_manager'][0]].sfwip }}"
   tasks:
@@ -18,15 +18,6 @@
         path: /home/sfw/.local/bin
         state: directory
 
-    # todo this doesnt work for ansible tasks
-    - name: add sfw bin to path
-      remote_user: root
-      ansible.builtin.blockinfile:
-        path: /etc/profile
-        marker: "# {mark} sfw bin {{ inventory_hostname }}"
-        block: |
-          PATH=$PATH:/home/sfw/.local/bin
-
     - name: download pkl binary
       ansible.builtin.get_url:
         url: https://github.com/apple/pkl/releases/download/0.25.2/pkl-linux-amd64
@@ -36,6 +27,15 @@
     - name: install pkl-gen-go
       ansible.builtin.shell: 
         cmd: "PATH=$PATH:/usr/local/go/bin go install github.com/apple/pkl-go/cmd/pkl-gen-go@latest"
+
+    # todo this doesnt work for ansible tasks
+    - name: add sfw bin to path
+      remote_user: root
+      ansible.builtin.blockinfile:
+        path: /etc/profile
+        marker: "# {mark} sfw bin {{ inventory_hostname }}"
+        block: |
+          PATH=$PATH:/home/sfw/.local/bin:/home/sfw/go/bin
 
     - name: clone sfw
       ansible.builtin.git:
