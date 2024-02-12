@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"regexp"
 	"sfw/gen/config"
-	"sfw/lib"
 	"strings"
 	"text/template"
 )
@@ -19,7 +18,6 @@ var sigC = make(chan os.Signal, 1)
 
 func init() {
 	signal.Notify(sigC, os.Interrupt)
-	lib.FlagParse()
 }
 
 func main() {
@@ -33,15 +31,12 @@ func run() error {
 
 	cfg, err := config.LoadFromPath(context.Background(), "./config.pkl")
 	if err != nil {
-
+		return err
 	}
-	log.Printf("info %v", cfg)
-
-	return nil
 
 	for {
 		s := http.Server{
-			Addr:    *lib.FlagWebSrv,
+			Addr:    cfg.Web.GetHost(),
 			Handler: http.HandlerFunc(serve),
 		}
 
@@ -177,7 +172,11 @@ func root(w http.ResponseWriter, r *http.Request) error {
 	// log.Printf("%v", seeds)
 	// return nil
 
-	t, err := comps(compRoot, compBar, compFoo("fo sho"))
+	t, err := comps(
+		compRoot,
+		compBar,
+		compFoo("fo sho"),
+	)
 	if err != nil {
 		return err
 	}

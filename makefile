@@ -1,6 +1,7 @@
-all: pkl cw ww log web mon
+all: cw ww log web mon
 
 pkl:
+	rm -rf ./gen/config
 	pkl-gen-go config.pkl
 
 cw:
@@ -12,7 +13,7 @@ ww:
 log:
 	GOOS=linux GOARCH=amd64 go build -o ./bin/loggerino ./cmd/loggerino/main.go
 
-web:
+web: pkl
 	GOOS=linux GOARCH=amd64 go build -o ./bin/web ./cmd/web/main.go
 
 mon:
