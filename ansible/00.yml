@@ -4,6 +4,13 @@
   remote_user: root
   tasks:
 
+    # - name: debug
+    #   debug:
+    #     var: reboot
+
+    # - name: debug
+    #   meta: end_play
+
     - name: install wireguard tools
       ansible.builtin.package:
         name: wireguard-tools

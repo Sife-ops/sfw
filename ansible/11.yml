@@ -3,16 +3,18 @@
   hosts: sfw_manager:sfw_node
   remote_user: root
   # gather_facts: no
+  vars:
+    reboot: False
   tasks:
 
 ###############################################################################
 ## debugging
 
-    # - name: lmao
+    # - name: debug
     #   debug:
-    #     var: ansible_distribution_release
+    #     var: reboot
 
-    # - name: asdf
+    # - name: debug
     #   meta: end_play
 
 ##############################################################################
@@ -162,11 +164,6 @@
       ansible.builtin.stat:
         path: /root/has_rebooted
       register: stat_rebooted
-
-    - name: reboot
-      ansible.builtin.set_fact:
-        reboot: False
-      when: reboot is undefined
 
     - name: reboot
       ansible.builtin.reboot:
