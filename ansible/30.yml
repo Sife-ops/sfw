@@ -2,9 +2,31 @@
 - name: clone sfw repository
   hosts: sfw_manager:sfw_node
   remote_user: sfw
+  gather_facts: no
+  vars:
+    manager_sfwip: "{{ hostvars[groups['sfw_manager'][0]].sfwip }}"
   tasks:
 
-    # todo DOWNLOAD/INSTALL PKL
+    # - name: asdf
+    #   debug:
+    #     var: inventory_hostname
+    # - name: asdf
+    #   meta: end_play
+
+    - name: create user bin path
+      ansible.builtin.file:
+        path: /home/sfw/.local/bin
+        state: directory
+
+    - name: download pkl binary
+      ansible.builtin.get_url:
+        url: https://github.com/apple/pkl/releases/download/0.25.2/pkl-linux-aarch64
+        dest: /home/sfw/.local/bin/pkl
+        mode: '0755'
+
+    - name: install pkl-gen-go
+      ansible.builtin.shell: 
+        cmd: "PATH=$PATH:/usr/local/go/bin go install github.com/apple/pkl-go/cmd/pkl-gen-go@latest"
 
     - name: clone sfw
       ansible.builtin.git:
@@ -13,8 +35,28 @@
         recursive: yes
         update: true
 
-    # - name: copy hosts file
-    #   ansible.builtin.copy:
-    #     src: "./hosts"
-    #     dest: "/home/sfw/sfw/ansible/hosts"
-    #     force: false
+    - name: configure sfw
+      ansible.builtin.blockinfile:
+        create: true
+        marker: "// {mark} amends {{ inventory_hostname }}"
+        path: "/home/sfw/sfw/pkl/amends.pkl"
+        block: |
+          amends "./config.pkl"
+
+          postgres: Postgres = new {
+              host = "{{ manager_sfwip }}:5432"
+              database = "seed"
+              username = "seed"
+          }
+
+          log: Log = new {
+              host = "{{ manager_sfwip }}:1337"
+          }
+
+          web: Web = new {
+              host = "127.0.0.1:3000"
+          }
+
+          websocket: Websocket = new {
+              host = "{{ manager_sfwip }}:51871"
+          }

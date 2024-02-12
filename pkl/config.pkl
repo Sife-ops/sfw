@@ -19,3 +19,11 @@ class Postgres extends Server {
 class Web extends Server {}
 class Log extends Server {}
 class Websocket extends Server {}
+
+///////////////////////////////////////////////////////////////////////////////
+// requirements
+
+postgres: Postgres
+log: Log
+web: Web
+websocket: Websocket

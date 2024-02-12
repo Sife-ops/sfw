@@ -1,12 +1,12 @@
-.PHONE: clean genpkl all
+.PHONY: all clean pkl cw ww log web mon
 
-all: cw ww log web mon
+all: clean pkl cw ww log web mon
 
 clean:
 	rm -rf ./gen/config
 
-genpkl:
-	pkl-gen-go ./pkl/config.pkl
+pkl:
+	pkl-gen-go ./pkl/config.pkl 
 
 # todo add dependencies
 
@@ -19,7 +19,7 @@ ww:
 log:
 	GOOS=linux GOARCH=amd64 go build -o ./bin/loggerino ./cmd/loggerino/main.go
 
-web: main.go
+web:
 	GOOS=linux GOARCH=amd64 go build -o ./bin/web ./cmd/web/main.go
 
 mon:

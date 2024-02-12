@@ -29,12 +29,13 @@ func main() {
 func run() error {
 	log.Printf("info starting gud web server")
 
-	cfg, err := config.LoadFromPath(context.Background(), "./config.pkl")
+	cfg, err := config.LoadFromPath(context.Background(), "./pkl/amends.pkl")
 	if err != nil {
 		return err
 	}
 
-	// log.Printf("debug %v", cfg.Lmao.GetHost())
+	// log.Printf("debug %+v", cfg)
+	// return nil
 
 	for {
 		s := http.Server{
