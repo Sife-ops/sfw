@@ -2,11 +2,12 @@
 - name: generate wireguard keys
   hosts: self:sfw_manager:sfw_node
   remote_user: root
+  # gather_facts: no
   tasks:
 
     # - name: debug
     #   debug:
-    #     var: reboot
+    #     var: lmao
 
     # - name: debug
     #   meta: end_play

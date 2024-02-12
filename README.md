@@ -1,15 +1,24 @@
 # seed finding workers
 
-## example `ansible/hosts`
-```
-[self]
-localhost ansible_connection=local
+## example `ansible/inventory.yml`
+```yml
+---
+self:
+  hosts:
+    localhost:
+      ansible_connection: local
+      wanip: 162.226.145.251
+      sfwip: 10.0.0.33
 
-[sfw_manager]
-149.28.33.186 sfwip=10.0.0.10
+sfw_manager:
+  hosts:
+    "35.243.214.251":
+      sfwip: 10.0.0.10
 
-[sfw_node]
-149.28.46.78 sfwip=10.0.0.20
+sfw_node:
+  hosts:
+    "149.28.46.78":
+      sfwip: 10.0.0.20
 ```
 
 extract vultr hosts
@@ -35,12 +44,6 @@ log: Log = new {
 web: Web = new {
     host = "127.0.0.1:3000"
 }
-```
-
-## example usage
-```
-./bin/cw -db_host=<> -db_pass=<>
-./bin/ww
 ```
 
 ## todo

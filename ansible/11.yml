@@ -12,7 +12,7 @@
 
     # - name: debug
     #   debug:
-    #     var: reboot
+    #     var: lmao
 
     # - name: debug
     #   meta: end_play
@@ -115,7 +115,6 @@
       ansible.builtin.user:
         name: sfw
         groups: docker
-
 
 ###############################################################################
 ## golang
