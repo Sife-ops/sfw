@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"embed"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -28,22 +28,27 @@ func main() {
 }
 
 func run() error {
-	s := http.Server{
-		Addr:    *lib.FlagWebSrv,
-		Handler: http.HandlerFunc(serve),
-	}
+	log.Printf("info starting gud web server")
 
-	go func() {
-		if err := s.ListenAndServe(); err != nil {
-			asyncErrC <- err
+	for {
+		s := http.Server{
+			Addr:    *lib.FlagWebSrv,
+			Handler: http.HandlerFunc(serve),
 		}
-	}()
 
-	select {
-	case err := <-asyncErrC:
-		return err
-	case <-sigC:
-		return nil
+		go func() {
+			if err := s.ListenAndServe(); err != nil {
+				asyncErrC <- err
+			}
+		}()
+
+		select {
+		case err := <-asyncErrC:
+			log.Printf("warning restarting due to error %v", err)
+			// return err
+		case <-sigC:
+			return nil
+		}
 	}
 }
 
@@ -54,7 +59,7 @@ func run() error {
 type ctxKey struct{}
 
 var routes = []route{
-	newRoute("GET", "/", root),
+	newRoute("GET", "/", wrapErr(root)),
 }
 
 func newRoute(method, pattern string, handler http.HandlerFunc) route {
@@ -89,34 +94,92 @@ func serve(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
-//go:embed template
-var fs embed.FS
-
 ///////////////////////////////////////////////////////////////////////////////
 
-func root(w http.ResponseWriter, r *http.Request) {
-	seeds := []lib.GodSeed{}
-	if err := lib.Db.Select(&seeds,
-		`SELECT *
-		FROM seed`,
-	); err != nil {
-		log.Printf("0 %v", err)
-		http.Error(w, "database", http.StatusInternalServerError)
-		return
-	}
-	// log.Printf("%v", gs)
+type compFn func(t *template.Template) (*template.Template, error)
 
-	t, err := template.New("root.html").ParseFS(fs, "template/root.html")
+func compRoot(t *template.Template) (*template.Template, error) {
+	return template.New("root").Parse(`
+		<!DOCTYPE html>
+		<html lang="en">
+		<head>
+			<meta charset="UTF-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+			<title>sfw</title>
+		</head>
+		<body>
+			<h1>sup sup sup</h1>
+			{{ block "compBar" . }}<div>template fail!</div>{{ end }}
+		</body>
+		</html>
+	`)
+}
+
+func compBar(t *template.Template) (*template.Template, error) {
+	return t.Parse(`
+		{{ define "compBar" }}
+		<div>bar</div>
+		{{ block "compFoo" . }} <div>failed!</div> {{ end }}
+		{{ end }}
+	`)
+}
+
+func compFoo(s string) compFn {
+	return func(t *template.Template) (*template.Template, error) {
+		return t.Parse(fmt.Sprintf(`
+			{{ define "compFoo" }}
+			<div>%s</div>
+			{{ end }}`, s),
+		)
+	}
+}
+
+func comps(tfnRoot compFn, tfns ...compFn) (*template.Template, error) {
+	t, err := tfnRoot(nil)
+	for _, tfn := range tfns {
+		if t, err = tfn(t); err != nil {
+			return nil, err
+		}
+	}
+	return t, nil
+}
+
+func wrapErr(
+	hfn func(w http.ResponseWriter, r *http.Request) error,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := hfn(w, r); err != nil {
+			log.Printf("error %v", err)
+			http.Error(w, "error %v", http.StatusInternalServerError)
+		}
+	}
+}
+
+func root(w http.ResponseWriter, r *http.Request) error {
+	// seeds := []lib.GodSeed{}
+	// if err := lib.Db.Select(&seeds,
+	// 	`SELECT *
+	// 	FROM seed`,
+	// ); err != nil {
+	// 	// log.Printf("0 %v", err)
+	// 	// http.Error(w, "database", http.StatusInternalServerError)
+	// 	return err
+	// }
+	// log.Printf("%v", seeds)
+	// return nil
+
+	t, err := comps(compRoot, compBar, compFoo("fo sho"))
 	if err != nil {
-		log.Printf("1 %v", err)
-		http.Error(w, "template", http.StatusInternalServerError)
-		return
+		return err
 	}
+
+	log.Printf("info %s", t.DefinedTemplates())
+
 	if err := t.Execute(w, map[string]interface{}{
-		"seeds": seeds,
+		// "seeds": seeds,
 	}); err != nil {
-		log.Printf("2 %v", err)
-		http.Error(w, "template", http.StatusInternalServerError)
-		return
+		return err
 	}
+
+	return nil
 }
