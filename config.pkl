@@ -1,0 +1,6 @@
+@go.Package { name = "sfw/gen/config" }
+module sfw
+
+import "package://pkg.pkl-lang.org/pkl-go/pkl.golang@0.5.3#/go.pkl"
+
+host: String = "127.0.0.1:3000"

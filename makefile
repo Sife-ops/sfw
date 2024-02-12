@@ -1,4 +1,7 @@
-all: cw ww log web mon
+all: pkl cw ww log web mon
+
+pkl:
+	pkl-gen-go config.pkl
 
 cw:
 	GOOS=linux GOARCH=amd64 go build -o ./bin/cw ./cmd/cubiomes-worker/main.go
