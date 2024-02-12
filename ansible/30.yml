@@ -18,9 +18,18 @@
         path: /home/sfw/.local/bin
         state: directory
 
+    # todo this doesnt work for ansible tasks
+    - name: add sfw bin to path
+      remote_user: root
+      ansible.builtin.blockinfile:
+        path: /etc/profile
+        marker: "# {mark} sfw bin {{ inventory_hostname }}"
+        block: |
+          PATH=$PATH:/home/sfw/.local/bin
+
     - name: download pkl binary
       ansible.builtin.get_url:
-        url: https://github.com/apple/pkl/releases/download/0.25.2/pkl-linux-aarch64
+        url: https://github.com/apple/pkl/releases/download/0.25.2/pkl-linux-amd64
         dest: /home/sfw/.local/bin/pkl
         mode: '0755'
 
@@ -37,9 +46,9 @@
 
     - name: configure sfw
       ansible.builtin.blockinfile:
+        path: "/home/sfw/sfw/pkl/amends.pkl"
         create: true
         marker: "// {mark} amends {{ inventory_hostname }}"
-        path: "/home/sfw/sfw/pkl/amends.pkl"
         block: |
           amends "./config.pkl"
 
@@ -47,6 +56,7 @@
               host = "{{ manager_sfwip }}:5432"
               database = "seed"
               username = "seed"
+              password = ""
           }
 
           log {

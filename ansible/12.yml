@@ -15,6 +15,7 @@
       ansible.builtin.blockinfile:
         path: /home/sfw/pg_hba.conf
         create: true
+        marker: "# {mark} pg_hba {{ inventory_hostname }}"
         block: |
           local   all             all                                     trust
           host    all             all             127.0.0.1/32            trust

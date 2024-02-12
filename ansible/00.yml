@@ -57,14 +57,14 @@
 
     - name: configure wireguard peers for manager
       ansible.builtin.blockinfile:
-        insertafter: "# peers"
         path: "/etc/wireguard/wg0.conf"
+        insertafter: "# peers"
+        marker: "# {mark} peer {{ item }}"
         block: |
           [Peer]
           PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/tmp/wg/keypublic') }}
           AllowedIPs = {{ hostvars[item].sfwip }}/32
           Endpoint = {{ (item == 'localhost') | ternary(hostvars[item].wanip, item) }}:51871
-        marker: "# {mark} peer {{ item }}"
       loop: "{{ groups['sfw_node'] + groups['self'] }}"
 
 - name: set up wireguard for nodes
@@ -98,14 +98,14 @@
 
     - name: configure wireguard peer for node
       ansible.builtin.blockinfile:
-        insertafter: "# peers"
         path: "/etc/wireguard/wg0.conf"
+        insertafter: "# peers"
+        marker: "# {mark} peer {{ item }}"
         block: |
           [Peer]
           PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/tmp/wg/keypublic') }}
           AllowedIPs = {{ hostvars[item].sfwip }}/32
           Endpoint = {{ item }}:51871
-        marker: "# {mark} peer {{ item }}"
       loop: "{{ groups['sfw_manager'] }}"
 
 - name: enable wireguard

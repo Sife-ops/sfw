@@ -36,6 +36,7 @@
       ansible.builtin.blockinfile:
         path: /etc/sudoers.d/ansible-sudoers
         block: "%sudo ALL=(ALL:ALL) NOPASSWD: ALL"
+        marker: "# {mark} sudo {{ inventory_hostname }}"
         create: true
         backup: yes
 
@@ -67,6 +68,7 @@
     - name: add swap to fstab
       ansible.builtin.blockinfile:
         path: /etc/fstab
+        marker: "# {mark} swap {{ inventory_hostname }}"
         block: |
           /swapfile none swap defaults 0 0
       when: not stat_swap.stat.exists
@@ -151,6 +153,7 @@
     - name: add golang to path
       ansible.builtin.blockinfile:
         path: /etc/profile
+        marker: "# {mark} golang bin {{ inventory_hostname }}"
         block: |
           PATH=$PATH:/usr/local/go/bin
       when: golang.changed
