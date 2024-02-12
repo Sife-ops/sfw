@@ -96,15 +96,12 @@
     - name: configure docker apt repository
       ansible.builtin.apt_repository:
         # repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/myrepo.asc] https://download.example.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        # todo USE ANSIBLE_DISTRIBUTION_RELEASE!!!
         repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable"
         state: present
     - name: update apt cache
       ansible.builtin.apt:
         update_cache: yes
-
-###############################################################################
-## 
-
     - name: install apt packages
       ansible.builtin.apt:
         pkg:
@@ -113,7 +110,6 @@
           - containerd.io
           # - docker-buildx-plugin
           # - docker-compose-plugin
-
     - name: add sfw user to docker group
       ansible.builtin.user:
         name: sfw
@@ -123,7 +119,7 @@
 ###############################################################################
 ## golang
 
-    # todo ansible.cfg variable
+    # todo use ansible.cfg variable
     # todo dont download golang every time
     - name: download golang
       ansible.builtin.get_url:

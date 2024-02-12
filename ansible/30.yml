@@ -3,6 +3,9 @@
   hosts: sfw_manager:sfw_node
   remote_user: sfw
   tasks:
+
+    # todo DOWNLOAD/INSTALL PKL
+
     - name: clone sfw
       ansible.builtin.git:
         repo: https://github.com/Sife-ops/sfw.git

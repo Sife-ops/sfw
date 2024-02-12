@@ -4,19 +4,6 @@
   remote_user: sfw
   tasks:
 
-    # - name: debug
-    #   ansible.builtin.shell:
-    #     chdir: /home/sfw/sfw/cubiomes
-    #     cmd: "echo $PATH"
-    #   register: echo
-
-    # - name: debug
-    #   debug:
-    #     var: echo
-    
-    # - name: end play
-    #   meta: end_play
-
     # - name: build & install cubiomes
     #   ansible.builtin.shell:
     #     chdir: /home/sfw/sfw/cubiomes
