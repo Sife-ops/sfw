@@ -4,28 +4,6 @@ module sfw
 import "package://pkg.pkl-lang.org/pkl-go/pkl.golang@0.5.3#/go.pkl"
 
 ///////////////////////////////////////////////////////////////////////////////
-// configurinos
-
-postgres: Postgres = new {
-    host = "10.0.0.10:5432"
-    database = "seed"
-    username = "seed"
-    password = "seed"
-}
-
-log: Log = new {
-    host = "10.0.0.10:1337"
-}
-
-web: Web = new {
-    host = "127.0.0.1:3000"
-}
-
-websocket: Websocket = new {
-    host = "10.0.0.10:51871"
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // definitions
 
 abstract class Server {

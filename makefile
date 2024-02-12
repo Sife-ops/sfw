@@ -1,8 +1,14 @@
+.PHONE: clean genpkl all
+
 all: cw ww log web mon
 
-pkl:
+clean:
 	rm -rf ./gen/config
-	pkl-gen-go config.pkl
+
+genpkl:
+	pkl-gen-go ./pkl/config.pkl
+
+# todo add dependencies
 
 cw:
 	GOOS=linux GOARCH=amd64 go build -o ./bin/cw ./cmd/cubiomes-worker/main.go
@@ -13,7 +19,7 @@ ww:
 log:
 	GOOS=linux GOARCH=amd64 go build -o ./bin/loggerino ./cmd/loggerino/main.go
 
-web: pkl
+web: main.go
 	GOOS=linux GOARCH=amd64 go build -o ./bin/web ./cmd/web/main.go
 
 mon:

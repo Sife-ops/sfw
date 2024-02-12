@@ -34,6 +34,8 @@ func run() error {
 		return err
 	}
 
+	// log.Printf("debug %v", cfg.Lmao.GetHost())
+
 	for {
 		s := http.Server{
 			Addr:    cfg.Web.GetHost(),

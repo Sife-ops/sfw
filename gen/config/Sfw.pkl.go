@@ -8,6 +8,7 @@ import (
 )
 
 type Sfw struct {
+	// ////////////////////////////////////////////////////////////////////////////
 	Postgres Postgres `pkl:"postgres"`
 
 	Log Log `pkl:"log"`
@@ -15,6 +16,8 @@ type Sfw struct {
 	Web Web `pkl:"web"`
 
 	Websocket Websocket `pkl:"websocket"`
+
+	Lmao Websocket `pkl:"lmao"`
 }
 
 // LoadFromPath loads the pkl module at the given path and evaluates it into a Sfw
