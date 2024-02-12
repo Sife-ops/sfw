@@ -43,20 +43,20 @@
         block: |
           amends "./config.pkl"
 
-          postgres: Postgres = new {
+          postgres {
               host = "{{ manager_sfwip }}:5432"
               database = "seed"
               username = "seed"
           }
 
-          log: Log = new {
+          log {
               host = "{{ manager_sfwip }}:1337"
           }
 
-          web: Web = new {
+          web {
               host = "127.0.0.1:3000"
           }
 
-          websocket: Websocket = new {
+          websocket {
               host = "{{ manager_sfwip }}:51871"
           }

@@ -34,8 +34,8 @@ func run() error {
 		return err
 	}
 
-	// log.Printf("debug %+v", cfg)
-	// return nil
+	log.Printf("debug %+v", cfg)
+	return nil
 
 	for {
 		s := http.Server{
