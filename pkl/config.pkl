@@ -3,6 +3,9 @@ module sfw
 
 import "package://pkg.pkl-lang.org/pkl-go/pkl.golang@0.5.3#/go.pkl"
 
+///////////////////////////////////////////////////////////////////////////////
+// configurinos
+
 postgres: Postgres = new {
     host = "10.0.0.10:5432"
     database = "seed"
@@ -23,7 +26,7 @@ websocket: Websocket = new {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// definitos
+// definitions
 
 abstract class Server {
     host: String
