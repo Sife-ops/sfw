@@ -39,10 +39,8 @@
         path: /home/sfw/.ssh/authorized_keys
         create: true
         backup: yes
-        marker: "# {mark} local pubkey"
+        marker: "# {mark} local pubkey {{ inventory_hostname }}"
         block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
-        # todo hostname is blank
-        # marker: "# {mark} {{ lookup('ansible.builtin.env', 'HOSTNAME') }} PUBKEY"
 
 - name: set up ssh for manager
   hosts: sfw_manager
@@ -81,24 +79,24 @@
       ansible.builtin.blockinfile:
         block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_sfw') }}"
         path: /home/sfw/.ssh/authorized_keys
-        marker: "# {mark} manager sfw pubkey to sfw"
+        marker: "# {mark} manager sfw pubkey to sfw {{ inventory_hostname }}"
         backup: yes
     - name: install manager ssh pubkeys (sfw)
       ansible.builtin.blockinfile:
         block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_sfw') }}"
         path: /root/.ssh/authorized_keys
-        marker: "# {mark} manager sfw pubkey to root"
+        marker: "# {mark} manager sfw pubkey to root {{ inventory_hostname }}"
         backup: yes
 
     - name: install manager ssh pubkeys (root)
       ansible.builtin.blockinfile:
         block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_root') }}"
         path: /home/sfw/.ssh/authorized_keys
-        marker: "# {mark} manager root pubkey to sfw"
+        marker: "# {mark} manager root pubkey to sfw {{ inventory_hostname }}"
         backup: yes
     - name: install manager ssh pubkeys (root)
       ansible.builtin.blockinfile:
         block: "{{ lookup('ansible.builtin.file', './tmp/sfw_manager_rsa_root') }}"
         path: /root/.ssh/authorized_keys
-        marker: "# {mark} manager root pubkey to root"
+        marker: "# {mark} manager root pubkey to root {{ inventory_hostname }}"
         backup: yes
