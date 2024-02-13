@@ -52,6 +52,8 @@
         block: |
           amends "./config.pkl"
 
+          sfwip = "{{ hostvars[inventory_hostname].sfwip }}"
+
           postgres {
               host = "{{ manager_sfwip }}:5432"
               database = "seed"

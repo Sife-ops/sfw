@@ -39,28 +39,17 @@
 - name: mount nfs export on nodes
   hosts: sfw_node:self # todo and self?
   remote_user: root
-  # become: true
+  become: true
   # gather_facts: no
   tasks:
 
-    # - name: create nfs mount dir
-    #   ansible.builtin.file:
-    #     # path: /home/sfw/nfs
-    #     path: /tmp/sfw_nfs
-    #     state: directory
-    #     owner: root
-    #     group: wheel
-    #     # owner: nobody
-    #     # group: nogroup
-    #     mode: '0755'
-
     - name: mount nfs export
       ansible.posix.mount:
-        # path: /home/sfw/nfs
         path: /tmp/sfw_nfs
         src: "{{ hostvars[groups['sfw_manager'][0]].sfwip }}:/var/nfs/sfw"
         fstype: nfs
         opts: vers=4
+        # todo add to node fstab?
         # state: present
         # state: mounted
         state: ephemeral

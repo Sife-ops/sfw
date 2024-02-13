@@ -39,7 +39,7 @@
         block: "%sudo ALL=(ALL:ALL) NOPASSWD: ALL"
         marker: "# {mark} sudo {{ inventory_hostname }}"
         create: true
-        backup: yes
+        # backup: yes
 
 ###############################################################################
 ## swap
