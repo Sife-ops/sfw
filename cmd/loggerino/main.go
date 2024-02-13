@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net"
@@ -18,74 +17,52 @@ func init() {
 }
 
 func main() {
-	fmt.Println("starting loggerino")
-	if err := run(); err != nil {
-		log.Fatalf("error %v", err)
-	}
-}
-
-func run() error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go runAsync(ctx)
-
-	select {
-	case <-sigC:
-	case err := <-asyncErrC:
-		return err
-	}
-
-	return nil
-}
-
-func runAsync(ctx context.Context) {
 	listener, err := net.Listen("tcp", lib.Cfg.Log.GetHost())
 	if err != nil {
-		<-asyncErrC
+		log.Fatalln(err)
 		return
 	}
-	log.Printf("info listening on %s", lib.Cfg.Log.GetHost())
+	log.Printf("info listening on %s\n", lib.Cfg.Log.GetHost())
 
 	for {
-		soC := make(chan net.Conn)
+		sockC := make(chan net.Conn)
 		errC := make(chan error)
 
 		go func() {
-			so, err := listener.Accept()
+			sock, err := listener.Accept()
 			if err != nil {
 				errC <- err
 				return
 			}
-			soC <- so
+			sockC <- sock
 		}()
 
 		select {
-		case <-ctx.Done():
+		case <-sigC:
 			return
 		case err := <-errC:
-			fmt.Println(err)
-		case so := <-soC:
-			go readSocket(ctx, so)
+			log.Println(err)
+		case so := <-sockC:
+			go readSocket(so)
 		}
 	}
 }
 
-func readSocket(ctx context.Context, so net.Conn) {
+func readSocket(sock net.Conn) {
 	defer func() {
-		if err := so.Close(); err != nil {
-			fmt.Println(err)
+		if err := sock.Close(); err != nil {
+			log.Println(err)
 		}
 	}()
 
 	b := make([]byte, 1024)
-	mLen, err := so.Read(b)
+	mLen, err := sock.Read(b)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 
-	fmt.Printf("%s | %s", so.RemoteAddr(), b[:mLen])
+	fmt.Printf("%s | %s", sock.RemoteAddr(), b[:mLen])
 
 	// todo write to file???
 }
