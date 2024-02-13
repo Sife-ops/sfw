@@ -23,6 +23,7 @@ class Websocket extends Server {}
 ///////////////////////////////////////////////////////////////////////////////
 // requirements
 
+sfwip: String
 postgres: Postgres
 log: Log
 web: Web

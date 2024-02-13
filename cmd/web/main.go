@@ -30,11 +30,9 @@ func main() {
 }
 
 func run() error {
-	log.Printf("info starting gud web server yoooooooooooooo")
-	log.Printf("info starting gud web server yaaaaaaaaaaaaaa")
+	log.Printf("info starting gud web server")
 
 	<-time.After(3 * time.Second)
-
 	return nil
 
 	for {

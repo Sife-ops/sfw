@@ -15,7 +15,6 @@ var asyncIdleC = make(chan struct{}, 1)
 var asyncStopC = make(chan struct{})
 var hysteresisMax = 9
 var hysteresisMin = 6
-var reconnectC = make(chan struct{}, 1)
 var sigC = make(chan os.Signal, 1)
 var threadsC chan struct{}
 
@@ -125,6 +124,7 @@ func loopPollDb(ctx context.Context) {
 				asyncErrC <- err
 				return
 			}
+
 			switch {
 			case len(godSeeds) < hysteresisMin:
 				if len(asyncIdleC) > 0 {

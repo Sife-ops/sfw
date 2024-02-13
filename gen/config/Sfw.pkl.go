@@ -9,6 +9,8 @@ import (
 
 type Sfw struct {
 	// ////////////////////////////////////////////////////////////////////////////
+	Sfwip string `pkl:"sfwip"`
+
 	Postgres Postgres `pkl:"postgres"`
 
 	Log Log `pkl:"log"`
