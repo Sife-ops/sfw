@@ -31,6 +31,8 @@ s = ""; document.querySelectorAll("[data-original-title='Copy IP Address']").for
 ```pkl
 amends "./config.pkl"
 
+sfwip = "my_hostname"
+
 postgres: Postgres = new {
     host = "10.0.0.10:5432"
     database = "seed"
