@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -19,7 +20,7 @@ var sigC = make(chan os.Signal, 1)
 func init() {
 	lib.FlagParse()
 
-	log.SetOutput(lib.NewLogger())
+	log.SetOutput(io.MultiWriter(os.Stdout, lib.FileLogger{}, lib.SockLogger{}))
 
 	signal.Notify(sigC, os.Interrupt)
 }

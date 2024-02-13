@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -21,7 +22,7 @@ var threadsC chan struct{}
 func init() {
 	lib.FlagParse()
 
-	log.SetOutput(lib.NewLogger())
+	log.SetOutput(io.MultiWriter(os.Stdout, lib.FileLogger{}, lib.SockLogger{}))
 
 	threadsC = make(chan struct{}, *lib.FlagThreads)
 

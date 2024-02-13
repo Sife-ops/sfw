@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"sfw/lib"
 	"strings"
 	"text/template"
+	"time"
 )
 
 var asyncErrC = make(chan error)
@@ -18,6 +20,7 @@ var sigC = make(chan os.Signal, 1)
 
 func init() {
 	signal.Notify(sigC, os.Interrupt)
+	log.SetOutput(io.MultiWriter(os.Stdout, lib.FileLogger{}, lib.SockLogger{}))
 }
 
 func main() {
@@ -27,7 +30,12 @@ func main() {
 }
 
 func run() error {
-	log.Printf("info starting gud web server")
+	log.Printf("info starting gud web server yoooooooooooooo")
+	log.Printf("info starting gud web server yaaaaaaaaaaaaaa")
+
+	<-time.After(3 * time.Second)
+
+	return nil
 
 	for {
 		s := http.Server{

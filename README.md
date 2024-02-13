@@ -23,6 +23,7 @@ sfw_node:
 
 extract vultr hosts
 ```javascript
+// todo update for inventory.yml
 s = ""; document.querySelectorAll("[data-original-title='Copy IP Address']").forEach((x, i) => s = `${s}${x.innerText} sfwip=10.0.0.${(i * 10) + 20}\n`); console.log(s)
 ```
 

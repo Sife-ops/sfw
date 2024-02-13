@@ -1,95 +1,60 @@
 package lib
 
 import (
-	"errors"
 	"fmt"
-	"log"
 	"net"
 	"os"
-	"os/signal"
 	"time"
 )
 
-type Logger struct {
-	Conn net.Conn
-}
+// todo throttle error output
 
-var LogErrC = make(chan error, 10)
-var reconnectC = make(chan struct{}, 1)
-var sigC = make(chan os.Signal, 1)
+type FileLogger struct{}
 
-func init() {
-	signal.Notify(sigC, os.Interrupt)
-	go dialateLogger()
-}
-
-func NewLogger() Logger {
-	dialer := net.Dialer{Timeout: 3 * time.Second}
-	conn, err := dialer.Dial("tcp", Cfg.Log.GetHost())
+func (O FileLogger) Write(p []byte) (n int, err error) {
+	f, err := os.OpenFile("/tmp/sfw_nfs/log/yeah", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		LogErrC <- err
+		fmt.Println(err)
+		return
 	}
-	return Logger{Conn: conn}
-}
 
-// todo split log files
-func (O Logger) Write(p []byte) (n int, err error) {
-	fmt.Printf(string(p))
-
-	go func() {
-		if O.Conn == nil {
-			LogErrC <- errors.New("conn nil")
-			return
-		}
-		if _, err := O.Conn.Write(p); err != nil {
-			LogErrC <- err
-			return
+	defer func() {
+		if err := f.Close(); err != nil {
+			fmt.Println(err)
 		}
 	}()
 
-	return len(p), nil
+	n, err = f.Write(p)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return
 }
 
-func dialateLogger() {
-	for {
-		select {
-		case logErr := <-LogErrC:
-			cC := make(chan net.Conn)
+///////////////////////////////////////////////////////////////////////////////
 
-			go func() {
-				if len(reconnectC) > 0 {
-					return
-				}
-				reconnectC <- struct{}{}
-				fmt.Printf("%v\n", logErr)
+var sockDialer = net.Dialer{Timeout: 3 * time.Second}
 
-				dialer := net.Dialer{Timeout: 3 * time.Second}
-				conn, err := dialer.Dial("tcp", Cfg.Log.GetHost())
-				if err != nil {
-					for len(LogErrC) > 0 {
-						<-LogErrC
-					}
-					LogErrC <- err
-					return
-				}
-				cC <- conn
-			}()
+type SockLogger struct{}
 
-			select {
-			case <-sigC:
-				return
-			case c := <-cC:
-				log.SetOutput(Logger{Conn: c})
-				// SfwLogger = Logger{Conn: c}
-			case <-time.After(3 * time.Second):
-			}
-
-			for len(reconnectC) > 0 {
-				<-reconnectC
-			}
-
-		case <-sigC:
-			return
-		}
+func (O SockLogger) Write(p []byte) (n int, err error) {
+	conn, err := sockDialer.Dial("tcp", Cfg.Log.GetHost())
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
+
+	defer func() {
+		if err := conn.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+
+	n, err = conn.Write(p)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return
 }

@@ -12,19 +12,18 @@ import (
 
 var asyncErrC = make(chan error)
 var sigC = make(chan os.Signal, 1)
-var socksM = make(map[net.Conn]bool)
 
 func init() {
 	signal.Notify(sigC, os.Interrupt)
 }
 
 func main() {
+	fmt.Println("starting loggerino")
 	if err := run(); err != nil {
 		log.Fatalf("error %v", err)
 	}
 }
 
-// todo handle sigint
 func run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -49,11 +48,13 @@ func runAsync(ctx context.Context) {
 	log.Printf("info listening on %s", lib.Cfg.Log.GetHost())
 
 	for {
-		soC := make(chan net.Conn, 1)
+		soC := make(chan net.Conn)
+		errC := make(chan error)
+
 		go func() {
 			so, err := listener.Accept()
 			if err != nil {
-				asyncErrC <- err
+				errC <- err
 				return
 			}
 			soC <- so
@@ -62,36 +63,29 @@ func runAsync(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case err := <-errC:
+			fmt.Println(err)
 		case so := <-soC:
-			socksM[so] = true
-			fmt.Printf("%s | connected\n", so.RemoteAddr())
 			go readSocket(ctx, so)
 		}
 	}
 }
 
 func readSocket(ctx context.Context, so net.Conn) {
-	for {
-		done := make(chan bool)
-		errC := make(chan error)
-		go func() {
-			b := make([]byte, 1024)
-			mLen, err := so.Read(b)
-			if err != nil {
-				errC <- err
-			}
-			fmt.Printf("%s | %s", so.RemoteAddr(), b[:mLen])
-			done <- true
-		}()
-
-		select {
-		case <-ctx.Done():
-			return
-		case err := <-errC:
-			log.Printf("%v", err)
-			delete(socksM, so)
-			return
-		case <-done:
+	defer func() {
+		if err := so.Close(); err != nil {
+			fmt.Println(err)
 		}
+	}()
+
+	b := make([]byte, 1024)
+	mLen, err := so.Read(b)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
+
+	fmt.Printf("%s | %s", so.RemoteAddr(), b[:mLen])
+
+	// todo write to file???
 }
