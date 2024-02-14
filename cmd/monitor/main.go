@@ -80,9 +80,10 @@ func readSocket(sock net.Conn) {
 		return
 	}
 
-	fmt.Printf("%s | %s", sock.RemoteAddr(), b[:mLen])
+	line := fmt.Sprintf("%s | %s", sock.RemoteAddr(), b[:mLen])
+	fmt.Print(line)
 
-	if _, err := monitorLog.Write(b[:mLen]); err != nil {
+	if _, err := monitorLog.Write([]byte(line)); err != nil {
 		log.Println(err)
 		return
 	}
