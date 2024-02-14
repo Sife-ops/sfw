@@ -17,7 +17,6 @@
         name: wireguard-tools
         state: present
 
-    # todo put wireguard keys on local
     - name: create wireguard dir
       ansible.builtin.file:
         path: /tmp/wg

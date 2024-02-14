@@ -7,18 +7,21 @@ self:
   hosts:
     localhost:
       ansible_connection: local
-      wanip: 162.226.145.251
       wgip: 10.0.0.33
+      wanip: 162.226.xxx.251
+      wgrole: node
 
 sfw_manager:
   hosts:
     "35.243.214.251":
       wgip: 10.0.0.10
+      wgrole: manager
 
 sfw_node:
   hosts:
     "149.28.46.78":
       wgip: 10.0.0.20
+      wgrole: node
 ```
 
 extract vultr hosts
@@ -46,6 +49,10 @@ log: Log = new {
 
 web: Web = new {
     host = "127.0.0.1:3000"
+}
+
+worldgen {
+    ravine_proximity = 4
 }
 ```
 

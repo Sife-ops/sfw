@@ -1,0 +1,9 @@
+#!/usr/bin/env ansible-playbook
+---
+- name: how does this work
+  hosts: all
+
+  roles:
+    - role: wireguard
+      tags:
+        - wg

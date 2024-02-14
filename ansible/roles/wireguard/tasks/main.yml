@@ -1,0 +1,151 @@
+---
+
+###############################################################################
+## todo
+## - variable for port
+
+###############################################################################
+## debug
+
+# - name: i forgor
+#   ansible.builtin.debug:
+#     # var: item.value.wgrole
+#     msg: "{{ (manager_list | length) > 0 }}"
+#   # with_items: "{{ hostvars | selectattr('wgrole', 'equalto', 'manager') }}"
+#   # loop: "{{ hostvars | dict2items | selectattr('value.wgrole', 'equalto', 'manager') }}"
+#   # when: item.wgrole == 'manager'
+
+# - meta: end_play
+
+###############################################################################
+## validate runtime conditions
+
+# manager
+
+- name: set manager list
+  ansible.builtin.set_fact:
+    manager_list: "{{ hostvars | dict2items | selectattr('value.wgrole', 'equalto', 'manager') }}"
+
+- name: validate manager configuration
+  meta: end_play
+  when: (manager_list | length) < 1 or (manager_list | length) > 1
+
+- name: set manager hostname
+  ansible.builtin.set_fact:
+    manager_hostname: "{{ manager_list[0].key }}"
+
+# nodes
+
+- name: set node list
+  ansible.builtin.set_fact:
+    node_list: "{{ hostvars | dict2items | selectattr('value.wgrole', 'equalto', 'node') }}"
+
+- name: validate node configuration
+  meta: end_play
+  when: (node_list | length) < 1
+
+# localhost
+
+- name: validate localhost is defined
+  meta: end_play
+  when: hostvars['localhost'] is undefined
+
+- name: validate localhost wanip is defined
+  meta: end_play
+  when: hostvars['localhost'].wanip is undefined
+
+# all
+
+- name: validate wgip is defined
+  meta: end_play
+  when: hostvars[inventory_hostname].wgip is undefined
+
+###############################################################################
+## install & gen keys
+
+- name: install wireguard tools
+  ansible.builtin.package:
+    name: wireguard-tools
+    state: present
+
+- name: create wireguard dir
+  ansible.builtin.file:
+    path: /tmp/wg
+    state: directory
+
+- name: generate wireguard keys
+  ansible.builtin.shell:
+    cmd: "wg genkey | (umask 0077 && tee keyprivate) | wg pubkey > keypublic"
+    chdir: /tmp/wg
+
+- name: backup wireguard private keys
+  ansible.builtin.fetch:
+    src: /tmp/wg/keyprivate
+    dest: ./tmp
+
+- name: backup wireguard public keys
+  ansible.builtin.fetch:
+    src: /tmp/wg/keypublic
+    dest: ./tmp
+
+###############################################################################
+## dilate manager
+
+- name: configure wireguard for manager
+  ansible.builtin.copy:
+    content: |
+      [Interface]
+      Address = {{ wgip }}/24
+      ListenPort = 51871
+      PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/tmp/wg/keyprivate') }}
+      # peers
+    dest: "/etc/wireguard/wg0.conf"
+  when: hostvars[inventory_hostname].wgrole == 'manager'
+
+- name: configure wireguard peers for manager
+  ansible.builtin.blockinfile:
+    path: "/etc/wireguard/wg0.conf"
+    insertafter: "# peers"
+    marker: "# {mark} peer {{ item }}"
+    block: |
+      [Peer]
+      PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/tmp/wg/keypublic') }}
+      AllowedIPs = {{ hostvars[item].wgip }}/32
+      Endpoint = {{ (item == 'localhost') | ternary(hostvars[item].wanip, item) }}:51871
+  loop: "{{ groups['all'] | difference([inventory_hostname]) }}"
+  when: hostvars[inventory_hostname].wgrole == 'manager'
+
+###############################################################################
+## dilate nodes
+
+- name: configure wireguard for node
+  ansible.builtin.copy:
+    content: |
+      [Interface]
+      Address = {{ wgip }}/24
+      ListenPort = 51871
+      PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/tmp/wg/keyprivate') }}
+      # peers
+    dest: "/etc/wireguard/wg0.conf"
+  when: hostvars[inventory_hostname].wgrole == 'node'
+
+- name: configure wireguard peer for node
+  ansible.builtin.blockinfile:
+    path: "/etc/wireguard/wg0.conf"
+    insertafter: "# peers"
+    marker: "# {mark} peer {{ manager_hostname }}"
+    block: |
+      [Peer]
+      PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + manager_hostname + '/tmp/wg/keypublic') }}
+      AllowedIPs = {{ hostvars[manager_hostname].wgip }}/32
+      Endpoint = {{ manager_hostname }}:51871
+  when: hostvars[inventory_hostname].wgrole == 'node'
+
+###############################################################################
+## start
+
+- name: start & enable wireguard service
+  ansible.builtin.systemd_service:
+    name: "wg-quick@wg0"
+    state: restarted
+    enabled: true
