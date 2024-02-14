@@ -17,8 +17,6 @@ type Sfw struct {
 
 	Web Web `pkl:"web"`
 
-	Websocket Websocket `pkl:"websocket"`
-
 	Worldgen *Worldgen `pkl:"worldgen"`
 }
 
