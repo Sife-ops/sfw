@@ -20,11 +20,18 @@ class Web extends Server {}
 class Log extends Server {}
 class Websocket extends Server {}
 
+class Worldgen {
+    ravine_proximity: Int
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // requirements
 
 sfwip: String
+
 postgres: Postgres
 log: Log
 web: Web
 websocket: Websocket
+
+worldgen: Worldgen

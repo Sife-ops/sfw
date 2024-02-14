@@ -40,19 +40,6 @@
   remote_user: root
   tasks:
 
-###############################################################################
-## debugging
-
-    # - name: lmao
-    #   debug:
-    #     var: peers
-
-    # - name: end
-    #   meta: end_play
-
-###############################################################################
-## 
-
     - name: configure wireguard for manager
       ansible.builtin.copy:
         content: |
@@ -80,19 +67,6 @@
   remote_user: root
   become: true
   tasks:
-
-###############################################################################
-## debugging
-
-    # - name: lmao
-    #   debug:
-    #     var: inventory_hostname
-
-    # - name: end
-    #   meta: end_play
-
-###############################################################################
-## 
 
     - name: configure wireguard for node
       ansible.builtin.copy:

@@ -72,3 +72,7 @@
           websocket {
               host = "{{ manager_sfwip }}:51871"
           }
+
+          worldgen {
+              ravine_proximity = 4
+          }

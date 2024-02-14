@@ -36,7 +36,7 @@ func KillMcContainer(ctx context.Context) error {
 		return err
 	}
 	for _, v := range cl {
-		if strings.Contains(v.Names[0], ctx.Value("inst").(string)) {
+		if strings.Contains(v.Names[0], "sfw0") {
 			if err := DockerClient.ContainerKill(ctx, v.ID, ""); err != nil {
 				return err
 			}
@@ -54,7 +54,7 @@ func RemoveMcContainer(ctx context.Context) error {
 		return err
 	}
 	for _, v := range cl {
-		if strings.Contains(v.Names[0], ctx.Value("inst").(string)) {
+		if strings.Contains(v.Names[0], "sfw0") {
 			if err := DockerClient.ContainerRemove(ctx, v.ID, types.ContainerRemoveOptions{}); err != nil {
 				return err
 			}
@@ -82,14 +82,14 @@ func ContainerCreateMc(ctx context.Context, seed *string) (container.CreateRespo
 			Mounts: []mount.Mount{
 				{
 					Type:   mount.TypeBind,
-					Source: fmt.Sprintf("%s/tmp/%s/data", MustString(os.Getwd()), ctx.Value("inst").(string)),
+					Source: fmt.Sprintf("%s/tmp/sfw0/data", MustString(os.Getwd())),
 					Target: "/data",
 				},
 			},
 		},
 		&network.NetworkingConfig{},
 		&ocispec.Platform{},
-		ctx.Value("inst").(string),
+		"sfw0",
 	)
 }
 

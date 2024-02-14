@@ -12,7 +12,7 @@
     - name: compile worldgen worker
       ansible.builtin.shell:
         chdir: /home/sfw/sfw
-        cmd: "PATH=$PATH:/usr/local/go/bin make ww"
+        cmd: "PATH=$PATH:/usr/local/go/bin:/home/sfw/.local/bin make ww"
 
     - name: pull docker image for minecraft server
       community.docker.docker_image:

@@ -18,6 +18,8 @@ type Sfw struct {
 	Web Web `pkl:"web"`
 
 	Websocket Websocket `pkl:"websocket"`
+
+	Worldgen *Worldgen `pkl:"worldgen"`
 }
 
 // LoadFromPath loads the pkl module at the given path and evaluates it into a Sfw

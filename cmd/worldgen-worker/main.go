@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var generateC = make(chan struct{}, 1)
+var generatingC = make(chan struct{}, 1)
 var generateErrC = make(chan error)
 var generateResetC = make(chan struct{}, 1)
 var sigC = make(chan os.Signal, 1)
@@ -32,7 +32,7 @@ func main() {
 }
 
 func NewCtx() (context.Context, context.CancelFunc) {
-	return context.WithCancel(context.WithValue(context.Background(), "inst", *lib.FlagInst))
+	return context.WithCancel(context.Background())
 }
 
 func run() error {
@@ -41,8 +41,8 @@ func run() error {
 	for {
 		select {
 		case <-time.After(3 * time.Second):
-			if len(generateC) < 1 {
-				generateC <- struct{}{}
+			if len(generatingC) < 1 {
+				generatingC <- struct{}{}
 				go generate(ctx)
 			}
 
@@ -74,7 +74,7 @@ func generate(ctx context.Context) {
 		tx, err := lib.Db.BeginTxx(ctx, nil)
 		if err != nil {
 			generateErrC <- err
-			<-generateC
+			<-generatingC
 			return
 		}
 
@@ -111,7 +111,7 @@ func generate(ctx context.Context) {
 	var cubiomesSeed lib.GodSeed
 	select {
 	case <-ctx.Done():
-		<-generateC
+		<-generatingC
 		return
 	case cs := <-cubiomesSeedC:
 		cubiomesSeed = cs
@@ -120,7 +120,7 @@ func generate(ctx context.Context) {
 	tx, err := lib.Db.BeginTxx(ctx, nil)
 	if err != nil {
 		generateErrC <- err
-		<-generateC
+		<-generatingC
 		return
 	}
 
@@ -128,7 +128,7 @@ func generate(ctx context.Context) {
 	go func() {
 	Dilate:
 		// todo more params
-		gs, err := lib.Worldgen(ctx, cubiomesSeed, 4)
+		gs, err := lib.WorldgenTask(ctx, cubiomesSeed)
 		if err != nil {
 			fmt.Printf(">>> ***** WORLDGEN IS DILATING *****\n")
 			fmt.Printf(">>> reason: %v\n", err)
@@ -165,7 +165,7 @@ func generate(ctx context.Context) {
 	var godSeed lib.GodSeed
 	select {
 	case <-ctx.Done():
-		<-generateC
+		<-generatingC
 		return
 	case gs := <-godSeedC:
 		godSeed = gs
@@ -185,16 +185,16 @@ func generate(ctx context.Context) {
 		&godSeed,
 	); err != nil {
 		generateErrC <- err
-		<-generateC
+		<-generatingC
 		return
 	}
 
 	if err := tx.Commit(); err != nil {
 		generateErrC <- err
-		<-generateC
+		<-generatingC
 		return
 	}
 
 	generateResetC <- struct{}{}
-	<-generateC
+	<-generatingC
 }

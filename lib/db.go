@@ -75,19 +75,36 @@ type Coords struct {
 	Z int
 }
 
-func (g *GodSeed) RavineArea(block_offset int) (int, int, int, int) {
-	// todo sus calcs
-	return *g.ShipwreckX - block_offset,
-		*g.ShipwreckZ - block_offset,
-		*g.ShipwreckX + block_offset + 15,
-		*g.ShipwreckZ + block_offset + 15
+func (g *GodSeed) RavineAreaX1() int {
+	return *g.ShipwreckX - Cfg.Worldgen.RavineProximity*16
 }
 
-func (g *GodSeed) ShipwreckArea() (int, int, int, int) {
-	return *g.ShipwreckX - 16,
-		*g.ShipwreckZ - 16,
-		*g.ShipwreckX + 31,
-		*g.ShipwreckZ + 31
+func (g *GodSeed) RavineAreaZ1() int {
+	return *g.ShipwreckZ - Cfg.Worldgen.RavineProximity*16
+}
+
+func (g *GodSeed) RavineAreaX2() int {
+	return *g.ShipwreckX + Cfg.Worldgen.RavineProximity*16 + 15
+}
+
+func (g *GodSeed) RavineAreaZ2() int {
+	return *g.ShipwreckZ + Cfg.Worldgen.RavineProximity*16 + 15
+}
+
+func (g *GodSeed) ShipwreckAreaX1() int {
+	return *g.ShipwreckX - 16
+}
+
+func (g *GodSeed) ShipwreckAreaZ1() int {
+	return *g.ShipwreckZ - 16
+}
+
+func (g *GodSeed) ShipwreckAreaX2() int {
+	return *g.ShipwreckX + 31
+}
+
+func (g *GodSeed) ShipwreckAreaZ2() int {
+	return *g.ShipwreckZ + 31
 }
 
 func (g *GodSeed) NetherChunksToBastion() (netherChunks2Load []Coords) {

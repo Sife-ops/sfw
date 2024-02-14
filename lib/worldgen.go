@@ -15,46 +15,93 @@ import (
 	"github.com/Tnze/go-mc/save/region"
 )
 
-func Worldgen(ctx context.Context, job GodSeed, ravineProximity int) (GodSeed, error) {
-	inst := ctx.Value("inst").(string)
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//// worldgen task
+////
 
+func WorldgenTask(ctx context.Context, job GodSeed) (GodSeed, error) {
+	wgDone := make(chan struct{})
+	wgErr := make(chan error)
+
+	// todo doesnt need to be goroutine
+	go GenerateWorld(ctx, job, wgDone, wgErr)
+
+	select {
+	case <-ctx.Done():
+		return job, nil
+	case err := <-wgErr:
+		return job, err
+	case <-wgDone:
+	}
+
+	dmDone := make(chan GodSeed)
+	dmErr := make(chan error)
+
+	go DatamineWorld(ctx, job, dmDone, dmErr)
+
+	var gs GodSeed
+	select {
+	case <-ctx.Done():
+		return job, nil
+	case err := <-dmErr:
+		return job, err
+	case g := <-dmDone:
+		gs = g
+	}
+
+	return gs, nil
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//// generate world
+////
+
+func GenerateWorld(ctx context.Context, job GodSeed, wgDone chan struct{}, wgErr chan error) {
 	log.Printf("info killing old container")
 	if err := KillMcContainer(ctx); err != nil {
 		if !strings.Contains(err.Error(), "is not running") {
-			return job, err
+			wgErr <- err
+			return
 		}
 	}
 
 	log.Printf("info removing old container")
 	if err := RemoveMcContainer(ctx); err != nil {
-		return job, err
+		wgErr <- err
+		return
 	}
 
 	log.Printf("info creating instance folder")
 	cmdMkDirInst := exec.CommandContext(ctx, "mkdir", "-p",
-		fmt.Sprintf("%s/tmp/%s/data", MustString(os.Getwd()), inst),
+		fmt.Sprintf("%s/tmp/sfw0/data", MustString(os.Getwd())),
 	)
 	if outMkDirInst, err := cmdMkDirInst.Output(); err != nil {
 		log.Printf("info error creating instance folder: %s %v", string(outMkDirInst), err)
-		return job, err
+		wgErr <- err
+		return
 	}
 
 	log.Printf("info deleting previous world folder")
 	cmdRmRfWorld := exec.CommandContext(ctx, "sudo", "rm", "-rf", // todo susdo
-		fmt.Sprintf("%s/tmp/%s/data/world", MustString(os.Getwd()), inst),
+		fmt.Sprintf("%s/tmp/sfw0/data/world", MustString(os.Getwd())),
 	)
 	if outRmRfWorld, err := cmdRmRfWorld.Output(); err != nil {
 		log.Printf("info error deleting world folder: %s %v", string(outRmRfWorld), err)
-		return job, err
+		wgErr <- err
+		return
 	}
 
 	log.Printf("info starting minecraft server container")
 	mc, err := ContainerCreateMc(ctx, job.Seed)
 	if err != nil {
-		return job, err
+		wgErr <- err
+		return
 	}
 	if err := DockerClient.ContainerStart(context.TODO(), mc.ID, types.ContainerStartOptions{}); err != nil {
-		return job, err
+		wgErr <- err
+		return
 	}
 
 	McStarted := make(chan error)
@@ -62,26 +109,29 @@ func Worldgen(ctx context.Context, job GodSeed, ravineProximity int) (GodSeed, e
 
 	log.Printf("info waiting for minecraft server to start")
 	if err := <-McStarted; err != nil {
-		return job, err
+		wgErr <- err
+		return
 	}
 
 	McStopped := make(chan error)
 	go AwaitMcStopped(ctx, McStopped, mc.ID)
 
+	///////////////////////////////////////////////////////////////////////////
 	// forceload chunks
+
 	// overworld
-	ravineAreaX1, ravineAreaZ1, ravineAreaX2, ravineAreaZ2 := job.RavineArea(ravineProximity * 16) // todo dont reuse later
 	if ec, err := McExec(ctx, mc.ID, []string{"rcon-cli",
 		fmt.Sprintf(
 			"forceload add %d %d %d %d",
-			ravineAreaX1, ravineAreaZ1, ravineAreaX2, ravineAreaZ2,
+			job.RavineAreaX1(), job.RavineAreaZ1(), job.RavineAreaX2(), job.RavineAreaZ2(),
 		),
 	}); ec != 0 && err != nil {
-		return job, err
+		wgErr <- err
+		return
 	} else {
 		log.Printf(
 			"info rcon forceloaded overworld area %d %d %d %d",
-			ravineAreaX1, ravineAreaZ1, ravineAreaX2, ravineAreaZ2,
+			job.RavineAreaX1(), job.RavineAreaZ1(), job.RavineAreaX2(), job.RavineAreaZ2(),
 		)
 	}
 
@@ -95,46 +145,64 @@ func Worldgen(ctx context.Context, job GodSeed, ravineProximity int) (GodSeed, e
 				v.X*16, v.Z*16, (v.X*16)+15, (v.Z*16)+15,
 			),
 		}); ec != 0 && err != nil {
-			return job, err
+			wgErr <- err
+			return
 		}
 	}
 	log.Printf("info rcon forceloaded nether chunks: %v", forceloadedNetherChunks)
 
 	// stop server
 	if ec, err := McExec(ctx, mc.ID, []string{"rcon-cli", "stop"}); ec != 0 && err != nil {
-		return job, err
+		wgErr <- err
+		return
 	} else {
 		log.Printf("info rcon stopped server")
 	}
 
 	log.Printf("info waiting for minecraft server to stop")
 	if err := <-McStopped; err != nil {
-		return job, err
+		wgErr <- err
+		return
 	}
 
 	log.Printf("info chmod data folder")
 	cmdChmodData := exec.CommandContext(ctx, "sudo", "chmod", "-R", "a+rw",
-		fmt.Sprintf("%s/tmp/%s/data", MustString(os.Getwd()), inst),
+		fmt.Sprintf("%s/tmp/sfw0/data", MustString(os.Getwd())),
 	)
 	if outChmodData, err := cmdChmodData.Output(); err != nil {
 		log.Printf("error chmod data folder: %s %v", string(outChmodData), err)
-		return job, err
+		wgErr <- err
+		return
 	}
 
+	wgDone <- struct{}{}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//// generate world
+////
+//// this part is RLLY bad
+////
+
+func DatamineWorld(ctx context.Context, job GodSeed, dmDone chan GodSeed, dmErr chan error) {
+
+	///////////////////////////////////////////////////////////////////////////
 	// overworld checks
-	// this part is RLLY bad
-	shipwreckAreaX1, shipwreckAreaZ1, shipwreckAreaX2, shipwreckAreaZ2 := job.ShipwreckArea()
+
 	magmaRavineChunks := []Coords{}
 	shipwrecksWithIron := []string{}
+
 	for quadrant := 0; quadrant < 4; quadrant++ {
 		// todo swap x/z
 		regionX := (quadrant % 2) - 1
 		regionZ := (quadrant / 2) - 1
 
-		x1 := ravineAreaX1
-		z1 := ravineAreaZ1
-		x2 := ravineAreaX2
-		z2 := ravineAreaZ2
+		x1 := job.RavineAreaX1()
+		z1 := job.RavineAreaZ1()
+		x2 := job.RavineAreaX2()
+		z2 := job.RavineAreaZ2()
+
 		if regionX < 0 {
 			if x1 >= 0 {
 				log.Printf("info no overlap with -X regions")
@@ -174,17 +242,19 @@ func Worldgen(ctx context.Context, job GodSeed, ravineProximity int) (GodSeed, e
 	NextQuadrant:
 		log.Printf(
 			"info skipping region %d,%d due to no overlap with ravine area around shipwreck %d %d %d %d",
-			regionX, regionZ, ravineAreaX1, ravineAreaZ1, ravineAreaX2, ravineAreaZ2,
+			regionX, regionZ,
+			job.RavineAreaX1(), job.RavineAreaZ1(), job.RavineAreaX2(), job.RavineAreaZ2(),
 		)
 		continue
 
 	OpenRegion:
 		region, err := region.Open(fmt.Sprintf(
-			"%s/tmp/%s/data/world/region/r.%d.%d.mca",
-			MustString(os.Getwd()), inst, regionX, regionZ,
+			"%s/tmp/sfw0/data/world/region/r.%d.%d.mca",
+			MustString(os.Getwd()), regionX, regionZ,
 		))
 		if err != nil {
-			return job, err
+			dmErr <- err
+			return
 		}
 
 		for xC := x1 / 16; xC < (x2+1)/16; xC++ {
@@ -196,18 +266,21 @@ func Worldgen(ctx context.Context, job GodSeed, ravineProximity int) (GodSeed, e
 
 				data, err := region.ReadSector(ToSector(xC), ToSector(zC))
 				if err != nil {
-					return job, err
+					dmErr <- err
+					return
 				}
 
 				var chunkSave save.Chunk
 				err = chunkSave.Load(data)
 				if err != nil {
-					return job, err
+					dmErr <- err
+					return
 				}
 
 				chunkLevel, err := level.ChunkFromSave(&chunkSave)
 				if err != nil {
-					return job, err
+					dmErr <- err
+					return
 				}
 
 				obby, magma, lava := 0, 0, 0
@@ -235,10 +308,11 @@ func Worldgen(ctx context.Context, job GodSeed, ravineProximity int) (GodSeed, e
 			}
 		}
 
-		x1 = shipwreckAreaX1
-		z1 = shipwreckAreaZ1
-		x2 = shipwreckAreaX2
-		z2 = shipwreckAreaZ2
+		x1 = job.ShipwreckAreaX1()
+		z1 = job.ShipwreckAreaZ1()
+		x2 = job.ShipwreckAreaX2()
+		z2 = job.ShipwreckAreaZ2()
+
 		if regionX < 0 {
 			if x1 >= 0 {
 				region.Close()
@@ -274,12 +348,14 @@ func Worldgen(ctx context.Context, job GodSeed, ravineProximity int) (GodSeed, e
 			for zC := z1 / 16; zC < (z2+1)/16; zC++ {
 				data, err := region.ReadSector(ToSector(xC), ToSector(zC))
 				if err != nil {
-					return job, err
+					dmErr <- err
+					return
 				}
 				var chunkSave save.Chunk
 				err = chunkSave.Load(data)
 				if err != nil {
-					return job, err
+					dmErr <- err
+					return
 				}
 				if len(chunkSave.Level.Structures.Starts.Shipwreck.Children) < 1 {
 					continue
@@ -306,16 +382,19 @@ func Worldgen(ctx context.Context, job GodSeed, ravineProximity int) (GodSeed, e
 		}
 	}
 
+	///////////////////////////////////////////////////////////////////////////
 	// nether checks
 	// todo ckeck for lava lake
+
 	netherChunkCoords := job.NetherChunksToBastion()
 
 	region, err := region.Open(fmt.Sprintf(
-		"%s/tmp/%s/data/world/DIM-1/region/r.%d.%d.mca",
-		MustString(os.Getwd()), inst, netherChunkCoords[0].X, netherChunkCoords[0].Z,
+		"%s/tmp/sfw0/data/world/DIM-1/region/r.%d.%d.mca",
+		MustString(os.Getwd()), netherChunkCoords[0].X, netherChunkCoords[0].Z,
 	))
 	if err != nil {
-		return job, err
+		dmErr <- err
+		return
 	}
 
 	percentageOfAir := []int{}
@@ -325,18 +404,21 @@ func Worldgen(ctx context.Context, job GodSeed, ravineProximity int) (GodSeed, e
 		// log.Printf("info sector %d %d", ToSector(v.X), ToSector(v.Z))
 		data, err := region.ReadSector(ToSector(v.X), ToSector(v.Z))
 		if err != nil {
-			return job, err
+			dmErr <- err
+			return
 		}
 
 		var chunkSave save.Chunk
 		err = chunkSave.Load(data)
 		if err != nil {
-			return job, err
+			dmErr <- err
+			return
 		}
 
 		chunkLevel, err := level.ChunkFromSave(&chunkSave)
 		if err != nil {
-			return job, err
+			dmErr <- err
+			return
 		}
 
 		airBlocks := 0
@@ -357,7 +439,12 @@ func Worldgen(ctx context.Context, job GodSeed, ravineProximity int) (GodSeed, e
 	log.Println()
 	log.Printf("info *+*+*+*+* GENERATED GOD SEED *+*+*+*+*")
 	log.Printf("info > seed: %s", *job.Seed)
-	log.Printf("info > magma ravine chunks within %d chunks: %d (%v)", ravineProximity, len(magmaRavineChunks), magmaRavineChunks)
+	log.Printf(
+		"info > magma ravine chunks within %d chunks: %d (%v)",
+		Cfg.Worldgen.RavineProximity,
+		len(magmaRavineChunks),
+		magmaRavineChunks,
+	)
 	log.Printf("info > shipwrecks with iron: %d (%v)", len(shipwrecksWithIron), shipwrecksWithIron)
 	log.Printf("info > pc.s of air toward bastion: %v", percentageOfAir)
 	if len(percentageOfAir) > 0 {
@@ -367,10 +454,10 @@ func Worldgen(ctx context.Context, job GodSeed, ravineProximity int) (GodSeed, e
 	log.Printf("info *+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*")
 	log.Println()
 
+	job.RavineProximity = ToIntRef(Cfg.Worldgen.RavineProximity)
 	job.RavineChunks = ToIntRef(len(magmaRavineChunks))
 	job.IronShipwrecks = ToIntRef(len(shipwrecksWithIron))
-	job.RavineProximity = ToIntRef(ravineProximity)
 	job.AvgBastionAir = ToIntRef(percentageOfAirAvg)
 
-	return job, nil
+	dmDone <- job
 }

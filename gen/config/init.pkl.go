@@ -9,4 +9,5 @@ func init() {
 	pkl.RegisterMapping("sfw#Log", LogImpl{})
 	pkl.RegisterMapping("sfw#Web", WebImpl{})
 	pkl.RegisterMapping("sfw#Websocket", WebsocketImpl{})
+	pkl.RegisterMapping("sfw#Worldgen", Worldgen{})
 }
