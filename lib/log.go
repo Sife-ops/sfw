@@ -12,7 +12,7 @@ import (
 type FileLogger struct{}
 
 func (O FileLogger) Write(p []byte) (n int, err error) {
-	f, err := os.OpenFile(fmt.Sprintf("/tmp/sfw_nfs/log/%s", Cfg.Sfwip), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := os.OpenFile(fmt.Sprintf("/tmp/sfw_nfs/log/%s", Cfg.Wgip), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		fmt.Println(err)
 		return

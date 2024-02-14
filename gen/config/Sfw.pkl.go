@@ -9,7 +9,7 @@ import (
 
 type Sfw struct {
 	// ////////////////////////////////////////////////////////////////////////////
-	Sfwip string `pkl:"sfwip"`
+	Wgip string `pkl:"wgip"`
 
 	Postgres Postgres `pkl:"postgres"`
 

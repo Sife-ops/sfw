@@ -46,7 +46,7 @@
     - name: mount nfs export
       ansible.posix.mount:
         path: /tmp/sfw_nfs
-        src: "{{ hostvars[groups['sfw_manager'][0]].sfwip }}:/var/nfs/sfw"
+        src: "{{ hostvars[groups['sfw_manager'][0]].wgip }}:/var/nfs/sfw"
         fstype: nfs
         opts: vers=4
         # todo add to node fstab?

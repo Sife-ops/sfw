@@ -4,7 +4,7 @@
   remote_user: sfw
   # gather_facts: no
   vars:
-    manager_sfwip: "{{ hostvars[groups['sfw_manager'][0]].sfwip }}"
+    manager_wgip: "{{ hostvars[groups['sfw_manager'][0]].wgip }}"
   tasks:
 
     # - name: asdf
@@ -58,17 +58,17 @@
         block: |
           amends "./config.pkl"
 
-          sfwip = "{{ hostvars[inventory_hostname].sfwip }}"
+          wgip = "{{ hostvars[inventory_hostname].wgip }}"
 
           postgres {
-              host = "{{ manager_sfwip }}:5432"
+              host = "{{ manager_wgip }}:5432"
               database = "seed"
               username = "seed"
               password = ""
           }
 
           log {
-              host = "{{ manager_sfwip }}:1337"
+              host = "{{ manager_wgip }}:1337"
           }
 
           web {

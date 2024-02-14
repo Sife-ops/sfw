@@ -44,7 +44,7 @@
       ansible.builtin.copy:
         content: |
           [Interface]
-          Address = {{ sfwip }}/24
+          Address = {{ wgip }}/24
           ListenPort = 51871
           PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/tmp/wg/keyprivate') }}
           # peers
@@ -58,7 +58,7 @@
         block: |
           [Peer]
           PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/tmp/wg/keypublic') }}
-          AllowedIPs = {{ hostvars[item].sfwip }}/32
+          AllowedIPs = {{ hostvars[item].wgip }}/32
           Endpoint = {{ (item == 'localhost') | ternary(hostvars[item].wanip, item) }}:51871
       loop: "{{ groups['sfw_node'] + groups['self'] }}"
 
@@ -72,7 +72,7 @@
       ansible.builtin.copy:
         content: |
           [Interface]
-          Address = {{ sfwip }}/24
+          Address = {{ wgip }}/24
           ListenPort = 51871
           PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/tmp/wg/keyprivate') }}
           # peers
@@ -86,7 +86,7 @@
         block: |
           [Peer]
           PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/tmp/wg/keypublic') }}
-          AllowedIPs = {{ hostvars[item].sfwip }}/32
+          AllowedIPs = {{ hostvars[item].wgip }}/32
           Endpoint = {{ item }}:51871
       loop: "{{ groups['sfw_manager'] }}"
 

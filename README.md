@@ -8,30 +8,30 @@ self:
     localhost:
       ansible_connection: local
       wanip: 162.226.145.251
-      sfwip: 10.0.0.33
+      wgip: 10.0.0.33
 
 sfw_manager:
   hosts:
     "35.243.214.251":
-      sfwip: 10.0.0.10
+      wgip: 10.0.0.10
 
 sfw_node:
   hosts:
     "149.28.46.78":
-      sfwip: 10.0.0.20
+      wgip: 10.0.0.20
 ```
 
 extract vultr hosts
 ```javascript
 // todo update for inventory.yml
-s = ""; document.querySelectorAll("[data-original-title='Copy IP Address']").forEach((x, i) => s = `${s}${x.innerText} sfwip=10.0.0.${(i * 10) + 20}\n`); console.log(s)
+s = ""; document.querySelectorAll("[data-original-title='Copy IP Address']").forEach((x, i) => s = `${s}${x.innerText} wgip=10.0.0.${(i * 10) + 20}\n`); console.log(s)
 ```
 
 ## example `pkl/amends.pkl`
 ```pkl
 amends "./config.pkl"
 
-sfwip = "my_hostname"
+wgip = "my_hostname"
 
 postgres: Postgres = new {
     host = "10.0.0.10:5432"

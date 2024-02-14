@@ -121,12 +121,6 @@ func datamineWorld(ctx context.Context, job GodSeed, dmDone chan GodSeed, dmErr 
 				for i := y10; i < y10+256; i++ {
 					x := chunkLevel.GetBlockID(1, i)
 					if x == "minecraft:magma_block" || x == "minecraft:obsidian" {
-
-						// }
-
-						// if x == "minecraft:obsidian" {
-						// obby++
-
 						goodBlocksAbove := 0
 						for j := 0; j < 52; j++ {
 							yj := i + (j+1)*256
