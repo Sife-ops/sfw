@@ -19,7 +19,7 @@ func init() {
 
 func main() {
 	var err error
-	monitorLog, err = os.OpenFile("./tmp/moniitor-log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	monitorLog, err = os.OpenFile("./tmp/monitor-log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalln(err)
 	}
