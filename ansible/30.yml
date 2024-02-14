@@ -18,11 +18,17 @@
         path: /home/sfw/.local/bin
         state: directory
 
+    - name: stat pkl binary
+      ansible.builtin.stat:
+        path: /home/sfw/.local/bin/pkl
+      register: pkl_bin
+
     - name: download pkl binary
       ansible.builtin.get_url:
         url: https://github.com/apple/pkl/releases/download/0.25.2/pkl-linux-amd64
         dest: /home/sfw/.local/bin/pkl
         mode: '0755'
+      when: not pkl_bin.stat.exists
 
     - name: install pkl-gen-go
       ansible.builtin.shell: 
@@ -67,10 +73,6 @@
 
           web {
               host = "127.0.0.1:3000"
-          }
-
-          websocket {
-              host = "{{ manager_sfwip }}:51871"
           }
 
           worldgen {
