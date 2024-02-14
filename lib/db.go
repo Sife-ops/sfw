@@ -47,10 +47,11 @@ type GodSeed struct {
 	Id   int     `db:"id"`
 	Seed *string `db:"seed"`
 
-	RavineProximity *int `db:"ravine_proximity"`
-	RavineChunks    *int `db:"ravine_chunks"`
-	IronShipwrecks  *int `db:"iron_shipwrecks"`
-	AvgBastionAir   *int `db:"avg_bastion_air"`
+	RavineProximity     *int `db:"ravine_proximity"`
+	RavineChunks        *int `db:"ravine_chunks"` // todo deprecated
+	ExposedRavineBlocks *int `db:"exposed_ravine_blocks"`
+	IronShipwrecks      *int `db:"iron_shipwrecks"`
+	AvgBastionAir       *int `db:"avg_bastion_air"`
 
 	Played *int `db:"played"`
 	Rating *int `db:"rating"`

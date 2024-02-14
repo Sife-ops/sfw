@@ -21,7 +21,7 @@ var threadsC chan struct{}
 func init() {
 	lib.FlagParse()
 
-	log.SetOutput(io.MultiWriter(os.Stdout, lib.FileLogger{}, lib.SockLogger{}))
+	log.SetOutput(io.MultiWriter(os.Stdout, lib.SockLogger{}))
 
 	threadsC = make(chan struct{}, *lib.FlagThreads)
 

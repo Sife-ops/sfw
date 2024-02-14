@@ -7,7 +7,7 @@ import (
 
 func Test_Worldgen(t *testing.T) {
 	t.Logf("lmaooooooooo")
-	gs, err := Worldgen(context.TODO(), GodSeed{
+	gs, err := WorldgenTask(context.TODO(), GodSeed{
 		// 1018
 		Seed: ToStringRef("5881310871221101610"),
 		// 0
@@ -21,7 +21,7 @@ func Test_Worldgen(t *testing.T) {
 		FortressZ:  ToIntRef(-128),
 		// 1
 		// 2024-02-01 14:47:43
-	}, 4)
+	})
 	if err != nil {
 		t.Logf("error %v", err)
 		t.FailNow()

@@ -20,7 +20,7 @@ var sigC = make(chan os.Signal, 1)
 func init() {
 	lib.FlagParse()
 
-	log.SetOutput(io.MultiWriter(os.Stdout, lib.FileLogger{}, lib.SockLogger{}))
+	log.SetOutput(io.MultiWriter(os.Stdout, lib.SockLogger{}))
 
 	signal.Notify(sigC, os.Interrupt)
 }
@@ -175,7 +175,7 @@ func generate(ctx context.Context) {
 		`UPDATE 
 			seed 
 		SET 
-			ravine_chunks=:ravine_chunks,
+			exposed_ravine_blocks=:exposed_ravine_blocks,
 			iron_shipwrecks=:iron_shipwrecks,
 			ravine_proximity=:ravine_proximity,
 			avg_bastion_air=:avg_bastion_air,
