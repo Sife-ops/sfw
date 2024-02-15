@@ -2,6 +2,7 @@
 ---
 - name: play 1
   hosts: all
+  # gather_facts: no
   roles:
 
     - role: wireguard
@@ -9,10 +10,5 @@
         - wireguard
 
     - role: ssh
-      tags:
-        - ssh
-
-    - role: ssh
-      username: sfw
       tags:
         - ssh
