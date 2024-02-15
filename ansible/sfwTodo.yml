@@ -1,9 +1,18 @@
 #!/usr/bin/env ansible-playbook
 ---
-- name: how does this work
+- name: play 1
   hosts: all
-
   roles:
+
     - role: wireguard
       tags:
-        - wg
+        - wireguard
+
+    - role: ssh
+      tags:
+        - ssh
+
+    - role: ssh
+      username: sfw
+      tags:
+        - ssh

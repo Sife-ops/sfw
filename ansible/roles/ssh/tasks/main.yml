@@ -1,0 +1,103 @@
+---
+
+###############################################################################
+## set
+
+- name: set username
+  ansible.builtin.set_fact:
+    username:  root
+  when: username is undefined
+
+- name: set group for {{ username }}
+  ansible.builtin.set_fact:
+    group: sudo
+  when: username != 'root' and group is undefined
+
+- name: set basepath for {{ username }}
+  ansible.builtin.set_fact:
+    basepath: "{{ '/home/' + username }}"
+  when: username != 'root'
+
+- name: set basepath for {{ username }}
+  ansible.builtin.set_fact:
+    basepath: /root
+  when: username == 'root'
+
+# - name: asdf
+#   debug:
+#     var: username
+
+# - meta: end_play
+
+###############################################################################
+## sshd
+
+- name: configure sshd
+  ansible.builtin.blockinfile:
+    path: "/etc/ssh/sshd_config"
+    marker: "# {mark} sshd {{ inventory_hostname }}"
+    block: |
+      PasswordAuthentication no
+      AuthenticationMethods publickey
+  register: sshd
+  when: inventory_hostname != 'localhost'
+
+- name: restart sshd
+  ansible.builtin.systemd_service:
+    name: sshd.service
+    state: restarted
+  when: sshd.changed
+
+###############################################################################
+##  user keygen
+
+- name: generate ssh keys for {{ username }}
+  ansible.builtin.user:
+    name: "{{ username }}"
+    group: "{{ group | default('sudo') }}"
+    generate_ssh_key: yes
+  when: username != 'root' and inventory_hostname != 'localhost'
+
+- name: generate ssh keys for {{ username }} on manager
+  ansible.builtin.user:
+    name: root
+    generate_ssh_key: yes
+  when: hostvars[inventory_hostname].sshrole == 'manager'
+
+###############################################################################
+## copy local
+
+- name: install localhost pubkey for {{ username }} on node
+  ansible.builtin.blockinfile:
+    path: "{{ '/home/' + username + '/.ssh/authorized_keys' }}"
+    create: true
+    marker: "# {mark} local pubkey for {{ inventory_hostname }}"
+    block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
+  when: username != 'root' and inventory_hostname != 'localhost'
+
+###############################################################################
+## backup manager
+
+- name: backup manager pubkey on local
+  ansible.builtin.fetch:
+    src: "{{ basepath + '/.ssh/id_rsa.pub' }}"
+    dest: "{{ './tmp/ssh_manager_rsa_' + username }}"
+    flat: yes
+  when: hostvars[inventory_hostname].sshrole == 'manager'
+
+- name: delete known_hosts on manager
+  ansible.builtin.file:
+    path: "{{ basepath + '/.ssh/known_hosts' }}"
+    state: absent
+  when: hostvars[inventory_hostname].sshrole == 'manager'
+
+
+###############################################################################
+## install manager
+
+- name: install manager pubkeys for {{ username }} on nodes
+  ansible.builtin.blockinfile:
+    block: "{{ lookup('ansible.builtin.file', './tmp/ssh_manager_rsa_' + username) }}"
+    path: "{{ basepath + '/.ssh/authorized_keys' }}"
+    marker: "# {mark} manager {{ username }} pubkey for {{ inventory_hostname }}"
+  when: hostvars[inventory_hostname].sshrole == 'node' and inventory_hostname != 'localhost'

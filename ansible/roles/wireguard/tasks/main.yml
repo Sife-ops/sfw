@@ -9,16 +9,19 @@
 
 # - name: i forgor
 #   ansible.builtin.debug:
-#     # var: item.value.wgrole
-#     msg: "{{ (manager_list | length) > 0 }}"
-#   # with_items: "{{ hostvars | selectattr('wgrole', 'equalto', 'manager') }}"
-#   # loop: "{{ hostvars | dict2items | selectattr('value.wgrole', 'equalto', 'manager') }}"
-#   # when: item.wgrole == 'manager'
+#     var: lmao
 
 # - meta: end_play
 
 ###############################################################################
 ## validate runtime conditions
+
+# listen port
+
+- name: set listen port
+  ansible.builtin.set_fact:
+    listen_port: '51871'
+  when: listen_port is undefined
 
 # manager
 
@@ -96,7 +99,7 @@
     content: |
       [Interface]
       Address = {{ wgip }}/24
-      ListenPort = 51871
+      ListenPort = {{ listen_port }}
       PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/tmp/wg/keyprivate') }}
       # peers
     dest: "/etc/wireguard/wg0.conf"
@@ -111,7 +114,7 @@
       [Peer]
       PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/tmp/wg/keypublic') }}
       AllowedIPs = {{ hostvars[item].wgip }}/32
-      Endpoint = {{ (item == 'localhost') | ternary(hostvars[item].wanip, item) }}:51871
+      Endpoint = {{ (item == 'localhost') | ternary(hostvars[item].wanip, item) }}:{{ listen_port }}
   loop: "{{ groups['all'] | difference([inventory_hostname]) }}"
   when: hostvars[inventory_hostname].wgrole == 'manager'
 
@@ -123,7 +126,7 @@
     content: |
       [Interface]
       Address = {{ wgip }}/24
-      ListenPort = 51871
+      ListenPort = {{ listen_port }}
       PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/tmp/wg/keyprivate') }}
       # peers
     dest: "/etc/wireguard/wg0.conf"
@@ -138,7 +141,7 @@
       [Peer]
       PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + manager_hostname + '/tmp/wg/keypublic') }}
       AllowedIPs = {{ hostvars[manager_hostname].wgip }}/32
-      Endpoint = {{ manager_hostname }}:51871
+      Endpoint = {{ manager_hostname }}:{{ listen_port }}
   when: hostvars[inventory_hostname].wgrole == 'node'
 
 ###############################################################################
