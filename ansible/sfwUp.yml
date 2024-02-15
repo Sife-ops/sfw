@@ -42,7 +42,6 @@
         block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
 
   roles:
-    # todo vary sus
     - role: sshcopy
       tags:
         - sshcopy
@@ -60,6 +59,11 @@
         - golang
 
   post_tasks:
+    - name: add sfw user to docker group
+      ansible.builtin.user:
+        name: sfw
+        groups: docker
+
     - name: install misc. packages
       ansible.builtin.apt:
         pkg:
@@ -96,7 +100,7 @@
       ansible.builtin.shell: 
         cmd: "PATH=$PATH:/usr/local/go/bin go install github.com/apple/pkl-go/cmd/pkl-gen-go@latest"
 
-    # todo this doesnt work for ansible tasks
+    # todo path not working w ansible.builtin.shell
     - name: add sfw bin dirs to path
       remote_user: root
       ansible.builtin.blockinfile:

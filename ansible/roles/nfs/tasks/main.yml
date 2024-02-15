@@ -2,7 +2,7 @@
 
 - name: populate parameters
   set_fact:
-    params: "{{ hostvars[inventory_hostname].nfs | default({ 'role': 'client'}) }}"
+    params: "{{ hostvars[inventory_hostname].nfs | default({ 'role': 'client' }) }}"
 
 - name: populate server parameters
   set_fact:
@@ -61,8 +61,5 @@
     src: "{{ server_params.host }}:{{ server_params.path }}"
     fstype: nfs
     opts: vers=4
-    # todo add to node fstab?
-    # state: present
-    # state: mounted
-    state: ephemeral
+    state: "{{ params.state | default('mounted') }}"
   when: params.role == 'client' and not params.ignore | default(False)
