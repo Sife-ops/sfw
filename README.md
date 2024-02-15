@@ -7,21 +7,33 @@ self:
   hosts:
     localhost:
       ansible_connection: local
-      wgip: 10.0.0.33
-      wanip: 162.226.xxx.251
-      wgrole: node
-
+      wg:
+        role: client
+        ip: 10.0.0.33
+        peer_ip: 162.xxx.145.251
+      sshcopy:
+        ignore: true
 sfw_manager:
   hosts:
     "35.243.214.251":
-      wgip: 10.0.0.10
-      wgrole: manager
-
+      wg:
+        role: server
+        ip: 10.0.0.10
+        port: '51871'
+      sshcopy:
+        role: server
+      nfs: 
+        role: server
+        host: 10.0.0.10
+        allowed: 10.0.0.0/24
+        path: /var/nfs/sfw
+        mount: /tmp/sfw_nfs
 sfw_node:
   hosts:
-    "149.28.46.78":
-      wgip: 10.0.0.20
-      wgrole: node
+    "45.63.1.103":
+      wg:
+        role: client
+        ip: 10.0.0.20
 ```
 
 extract vultr hosts

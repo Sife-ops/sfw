@@ -1,0 +1,47 @@
+---
+- name: populate parameters
+  set_fact:
+    params: "{{ hostvars[inventory_hostname].postgres | default({}) }}"
+
+
+- name: create pg_hba.conf
+  ansible.builtin.blockinfile:
+    path: "{{ params.path }}/pg_hba.conf"
+    create: true
+    marker: "# {mark} pg_hba {{ inventory_hostname }}"
+    block: |
+      local   all             all                                     trust
+      host    all             all             127.0.0.1/32            trust
+      host    all             all             ::1/128                 trust
+      local   replication     all                                     trust
+      host    replication     all             127.0.0.1/32            trust
+      host    replication     all             ::1/128                 trust
+      host    all             all             {{ params.allowed }}    trust
+      host    all             all             all                     scram-sha-256
+  when: hostvars[inventory_hostname].postgres is defined
+
+- name: start postgres docker
+  community.docker.docker_container:
+    name: "{{ params.name }}"
+    image: postgres
+    image_name_mismatch: ignore
+    state: started
+    command: "postgres -c 'hba_file=/etc/postgresql/pg_hba.conf'"
+    volumes:
+      - "{{ params.path }}/pg:/var/lib/postgresql/data"
+      - "{{ params.path }}/pg_hba.conf:/etc/postgresql/pg_hba.conf"
+    ports:
+      - "0.0.0.0:5432:5432"
+    env:
+      POSTGRES_USER: "{{ params.user }}"
+      # ALTER USER seed WITH PASSWORD 'new_password';
+      # POSTGRES_PASSWORD: seed 
+      POSTGRES_DB: "{{ params.database }}"
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+  when: hostvars[inventory_hostname].postgres is defined
+
+- name: wait for postgres docker to start
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 5432
+  when: hostvars[inventory_hostname].postgres is defined

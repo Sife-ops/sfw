@@ -1,0 +1,37 @@
+---
+# todo use ansible.cfg variable
+# todo dont download golang every time
+- name: download golang
+  ansible.builtin.get_url:
+    url: https://go.dev/dl/go1.22.0.linux-amd64.tar.gz
+    dest: /root/
+  register: golang
+
+- name: remove debian golang package
+  ansible.builtin.apt:
+    state: absent
+    pkg:
+      - golang
+      - golang-go
+  when: golang.changed
+
+- name: install make
+  ansible.builtin.apt:
+    name: make
+    state: present
+  when: golang.changed
+
+- name: install golang
+  ansible.builtin.shell: 
+    chdir: /root
+    cmd: "rm -rf /usr/local/go && tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz"
+  when: golang.changed
+
+# todo this doesnt work for ansible tasks
+- name: add golang to path
+  ansible.builtin.blockinfile:
+    path: /etc/profile
+    marker: "# {mark} golang bin {{ inventory_hostname }}"
+    block: |
+      PATH=$PATH:/usr/local/go/bin
+  when: golang.changed

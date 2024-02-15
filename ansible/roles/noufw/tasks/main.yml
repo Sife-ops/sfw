@@ -1,0 +1,10 @@
+---
+- name: populate service facts
+  ansible.builtin.service_facts:
+
+- name: disable ufw
+  ansible.builtin.systemd_service:
+    name: ufw.service
+    enabled: false
+    state: stopped
+  when: ansible_facts.services['ufw.service'] is defined
