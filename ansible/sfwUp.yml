@@ -1,0 +1,158 @@
+#!/usr/bin/env ansible-playbook
+---
+- name: wireguard, nfs
+  hosts: all
+  remote_user: root
+
+  roles:
+    - role: wireguard
+      tags:
+        - wireguard
+
+    - role: nfs
+      tags:
+        - nfs
+
+- name: ssh, swap, postgres, golang
+  hosts: remote
+  remote_user: root
+
+  pre_tasks:
+    - name: create sfw user
+      ansible.builtin.user:
+        name: sfw
+        group: sudo
+        generate_ssh_key: yes
+
+    - name: install localhost pubkey on sfw user
+      ansible.builtin.blockinfile:
+        path: /home/sfw/.ssh/authorized_keys
+        create: true
+        marker: "# {mark} localhost pubkey {{ inventory_hostname }}"
+        block: "{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') + '/.ssh/id_rsa.pub') }}"
+
+  roles:
+    # todo vary sus
+    - role: sshcopy
+      tags:
+        - sshcopy
+
+    - role: swap
+      tags:
+        - swap
+
+    - role: postgres
+      tags:
+        - postgres
+    
+    - role: golang
+      tags:
+        - golang
+
+  post_tasks:
+    - name: install misc. packages
+      ansible.builtin.apt:
+        pkg:
+          - tmux
+          # - postgresql-client
+          # - python3-psycopg
+      # when: dfjsaofjdskafdsa
+
+##
+## todo reboot???
+##
+
+- name: sfw repo
+  hosts: remote
+  remote_user: sfw
+
+  tasks:
+    - name: create sfw user bin path
+      ansible.builtin.file:
+        path: /home/sfw/.local/bin
+        state: directory
+
+    - name: stat pkl binary
+      ansible.builtin.stat:
+        path: /home/sfw/.local/bin/pkl
+      register: pkl_bin
+
+    - name: download pkl binary
+      ansible.builtin.get_url:
+        url: https://github.com/apple/pkl/releases/download/0.25.2/pkl-linux-amd64
+        dest: /home/sfw/.local/bin/pkl
+        mode: '0755'
+      when: not pkl_bin.stat.exists
+
+    - name: install pkl-gen-go
+      ansible.builtin.shell: 
+        cmd: "PATH=$PATH:/usr/local/go/bin go install github.com/apple/pkl-go/cmd/pkl-gen-go@latest"
+
+    # todo this doesnt work for ansible tasks
+    - name: add sfw bin dirs to path
+      remote_user: root
+      ansible.builtin.blockinfile:
+        path: /etc/profile
+        marker: "# {mark} sfw bin {{ inventory_hostname }}"
+        block: |
+          PATH=$PATH:/home/sfw/.local/bin:/home/sfw/go/bin
+
+    - name: clone sfw
+      ansible.builtin.git:
+        repo: https://github.com/Sife-ops/sfw.git
+        dest: /home/sfw/sfw
+        recursive: yes
+        update: true
+
+    - name: populate wireguard parameters
+      set_fact:
+        wg_params: "{{ hostvars[inventory_hostname].wg | default({ 'role': 'client', 'ignore': True }) }}"
+
+    - name: populate wireguard server parameters
+      set_fact:
+        wg_server_params: "{{ hostvars[item].wg }}"
+        wg_server_hostname: "{{ item }}"
+      loop: "{{ groups['all'] }}"
+      when: hostvars[item].wg.role | default('client') == 'server'
+
+    - name: configure sfw
+      ansible.builtin.blockinfile:
+        path: "/home/sfw/sfw/pkl/amends.pkl"
+        create: true
+        marker: "// {mark} amends {{ inventory_hostname }}"
+        block: |
+          amends "./config.pkl"
+
+          wgip = "{{ wg_params.ip }}"
+
+          postgres {
+              host = "{{ wg_server_params.ip }}:5432"
+              database = "seed"
+              username = "seed"
+              password = ""
+          }
+
+          log {
+              host = "{{ wg_server_params.ip }}:1337"
+          }
+
+          web {
+              host = "127.0.0.1:3000"
+          }
+
+          worldgen {
+              ravine_proximity = 4
+          }
+      when: not wg_params.ignore | default(False)
+
+    - name: compile worldgen worker
+      ansible.builtin.shell:
+        chdir: /home/sfw/sfw
+        cmd: "PATH=$PATH:/usr/local/go/bin:/home/sfw/.local/bin make ww"
+      when: not wg_params.ignore | default(False) and hostvars[inventory_hostname].sfw.role | default('') == 'worldgen'
+
+    - name: pull docker image for minecraft server
+      community.docker.docker_image:
+        name: itzg/minecraft-server
+        source: pull
+      when: not wg_params.ignore | default(False) and hostvars[inventory_hostname].sfw.role | default('') == 'worldgen'
