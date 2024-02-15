@@ -9,6 +9,9 @@
       tags:
         - wireguard
 
+    # todo mb reboot here
+    # - role: reboot
+
     - role: nfs
       tags:
         - nfs
@@ -18,6 +21,13 @@
   remote_user: root
 
   pre_tasks:
+    - name: configure sudo
+      ansible.builtin.blockinfile:
+        path: /etc/sudoers.d/ansible-sudoers
+        block: "%sudo ALL=(ALL:ALL) NOPASSWD: ALL"
+        marker: "# {mark} sudo {{ inventory_hostname }}"
+        create: true
+
     - name: create sfw user
       ansible.builtin.user:
         name: sfw
@@ -58,9 +68,7 @@
           # - python3-psycopg
       # when: dfjsaofjdskafdsa
 
-##
-## todo reboot???
-##
+# todo mb reboot here
 
 - name: sfw repo
   hosts: remote

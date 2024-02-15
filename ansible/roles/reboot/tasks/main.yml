@@ -1,0 +1,15 @@
+---
+- name: check if the computer has ever rebooted
+  ansible.builtin.stat:
+    path: /root/has_rebooted
+  register: stat_rebooted
+
+- name: reboot
+  ansible.builtin.reboot:
+  when: reboot or (not stat_rebooted.stat.exists)
+
+- name: remember this computer has rebooted
+  ansible.builtin.file:
+    path: /root/has_rebooted
+    state: touch
+  when: not stat_rebooted.stat.exists
