@@ -1,0 +1,62 @@
+---
+
+- name: populate parameters
+  set_fact:
+    params: "{{ hostvars[inventory_hostname].nfs | default({ 'role': 'client'}) }}"
+
+- name: populate server parameters
+  set_fact:
+    server_params: "{{ hostvars[item].nfs }}"
+  loop: "{{ groups['all'] }}"
+  when: hostvars[item].nfs.role | default('client') == 'server'
+
+# - name: asdf
+#   debug:
+#     var: server_params
+#   # when: params.role == 'server'
+
+# - meta: end_play
+
+- name: install nfs server
+  ansible.builtin.package:
+    name: nfs-kernel-server
+    state: present
+  when: params.role == 'server'
+
+- name: create nfs export dir
+  ansible.builtin.file:
+    path: "{{ server_params.path }}"
+    state: directory
+    owner: nobody # todo use sfw?
+    group: nogroup # todo use sudo?
+    mode: '0777'
+  when: params.role == 'server'
+
+- name: configure nfs
+  ansible.builtin.blockinfile:
+    path: /etc/exports
+    create: true
+    mode: '0644'
+    marker: "# {mark} nfs {{ inventory_hostname }}"
+    block: |
+      {{ server_params.path }} {{ server_params.allowed }}(rw,sync,no_subtree_check)
+  when: params.role == 'server'
+
+- name: start/enable nfs
+  ansible.builtin.systemd_service:
+    name: nfs-kernel-server
+    enabled: true
+    state: restarted
+  when: params.role == 'server'
+
+- name: mount nfs export
+  ansible.posix.mount:
+    path: "{{ server_params.mount }}"
+    src: "{{ server_params.host }}:{{ server_params.path }}"
+    fstype: nfs
+    opts: vers=4
+    # todo add to node fstab?
+    # state: present
+    # state: mounted
+    state: ephemeral
+  when: params.role == 'client'

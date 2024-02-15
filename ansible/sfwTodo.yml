@@ -2,13 +2,17 @@
 ---
 - name: play 1
   hosts: all
-  # gather_facts: no
+  gather_facts: no
   roles:
 
     - role: wireguard
       tags:
         - wireguard
 
-    - role: ssh
-      tags:
-        - ssh
+    # - role: sshcopy
+    #   tags:
+    #     - sshcopy
+
+    # - role: nfs
+    #   tags:
+    #     - nfs

@@ -39,8 +39,8 @@
     marker: "# {mark} root@{{ inventory_hostname }}"
   when: not hostvars[inventory_hostname].sshcopy | default(False) and not ignore
 
-# - name: delete known_hosts
-#   ansible.builtin.file:
-#     path: "{{ basepath + '/.ssh/known_hosts' }}"
-#     state: absent
-#   when: hostvars[inventory_hostname].sshrole == 'manager'
+- name: delete known_hosts
+  ansible.builtin.file:
+    path: /root/.ssh/known_hosts
+    state: absent
+  when: hostvars[inventory_hostname].sshcopy | default(False)
