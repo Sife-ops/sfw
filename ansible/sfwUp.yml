@@ -57,6 +57,8 @@
     - role: golang
       tags:
         - golang
+    
+    - role: reboot
 
   post_tasks:
     - name: add sfw user to docker group

@@ -21,13 +21,13 @@
   ansible.builtin.package:
     name: nfs-kernel-server
     state: present
-  when: params.role == 'server'
+  when: params.role | default('') == 'server'
 
 - name: install nfs utilities
   ansible.builtin.package:
     name: nfs-common
     state: present
-  when: params.role == 'client' and not params.ignore | default(False) and ansible_facts['os_family'] == 'Debian'
+  when: params.role | default('') == 'client' and not params.ignore | default(False) and ansible_facts['os_family'] == 'Debian'
 
 - name: create nfs export dir
   ansible.builtin.file:
@@ -36,7 +36,7 @@
     owner: nobody # todo use sfw?
     group: nogroup # todo use sudo?
     mode: '0777'
-  when: params.role == 'server'
+  when: params.role | default('') == 'server'
 
 - name: configure nfs
   ansible.builtin.blockinfile:
@@ -46,14 +46,14 @@
     marker: "# {mark} nfs {{ inventory_hostname }}"
     block: |
       {{ server_params.path }} {{ server_params.allowed }}(rw,sync,no_subtree_check)
-  when: params.role == 'server'
+  when: params.role | default('') == 'server'
 
 - name: start/enable nfs
   ansible.builtin.systemd_service:
     name: nfs-kernel-server
     enabled: true
     state: restarted
-  when: params.role == 'server'
+  when: params.role | default('') == 'server'
 
 - name: mount nfs export
   ansible.posix.mount:
@@ -62,4 +62,4 @@
     fstype: nfs
     opts: vers=4
     state: "{{ params.state | default('mounted') }}"
-  when: params.role == 'client' and not params.ignore | default(False)
+  when: params.role | default('') == 'client' and not params.ignore | default(False)

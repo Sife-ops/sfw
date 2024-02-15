@@ -6,7 +6,7 @@
 
 - name: reboot
   ansible.builtin.reboot:
-  when: reboot or (not stat_rebooted.stat.exists)
+  when: reboot | default(False) or not stat_rebooted.stat.exists
 
 - name: remember this computer has rebooted
   ansible.builtin.file:
