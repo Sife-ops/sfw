@@ -2,17 +2,18 @@
 ---
 - name: play 1
   hosts: all
-  gather_facts: no
+  # gather_facts: no
+  remote_user: root
   roles:
+
+    - role: sshcopy
+      tags:
+        - sshcopy
 
     - role: wireguard
       tags:
         - wireguard
 
-    # - role: sshcopy
-    #   tags:
-    #     - sshcopy
-
-    # - role: nfs
-    #   tags:
-    #     - nfs
+    - role: nfs
+      tags:
+        - nfs

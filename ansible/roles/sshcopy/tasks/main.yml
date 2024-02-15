@@ -1,7 +1,14 @@
 ---
-- name: ignore self
-  ansible.builtin.set_fact:
-    ignore: "{{ groups['self'] | difference([inventory_hostname]) | length < groups['self'] | length }}"
+- name: populate parameters
+  set_fact:
+    params: "{{ hostvars[inventory_hostname].sshcopy | default({ 'role': 'client' }) }}"
+
+- name: populate server parameters
+  set_fact:
+    # server_params: "{{ hostvars[item].wg }}"
+    server_hostname: "{{ item }}"
+  loop: "{{ groups['all'] }}"
+  when: hostvars[item].sshcopy.role | default('client') == 'server'
 
 - name: configure sshd
   ansible.builtin.blockinfile:
@@ -11,36 +18,36 @@
       PasswordAuthentication no
       AuthenticationMethods publickey
   register: sshd
-  when: not ignore
+  when: not params.ignore | default(False)
 
 - name: restart sshd
   ansible.builtin.systemd_service:
     name: sshd.service
     state: restarted
-  when: not ignore
+  when: sshd.changed
 
 - name: generate key
   ansible.builtin.user:
     name: root
     generate_ssh_key: yes
-  when: hostvars[inventory_hostname].sshcopy | default(False)
+  when: params.role | default('client') == 'server'
 
 - name: backup key
   ansible.builtin.fetch:
     src: /root/.ssh/id_rsa.pub
     dest: ./tmp/sshcopy_rsa
     flat: yes
-  when: hostvars[inventory_hostname].sshcopy | default(False)
+  when: params.role | default('client') == 'server'
 
 - name: copy key
   ansible.builtin.blockinfile:
     block: "{{ lookup('ansible.builtin.file', './tmp/sshcopy_rsa') }}"
     path: /root/.ssh/authorized_keys
-    marker: "# {mark} root@{{ inventory_hostname }}"
-  when: not hostvars[inventory_hostname].sshcopy | default(False) and not ignore
+    marker: "# {mark} root@{{ server_hostname }}"
+  when: params.role | default('client') == 'client' and not params.ignore | default(False)
 
 - name: delete known_hosts
   ansible.builtin.file:
     path: /root/.ssh/known_hosts
     state: absent
-  when: hostvars[inventory_hostname].sshcopy | default(False)
+  when: params.role | default('client') == 'server'

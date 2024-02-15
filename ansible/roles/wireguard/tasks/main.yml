@@ -73,7 +73,7 @@
       [Peer]
       PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/tmp/wg/keypublic') }}
       AllowedIPs = {{ hostvars[item].wg.ip }}/32
-      Endpoint = {{ (hostvars[item].wg.peer_ip | default('') | length > 0) | ternary(hostvars[item].wg.peer_ip, inventory_hostname) }}:{{ server_params.port }}
+      Endpoint = {{ (hostvars[item].wg.peer_ip | default('') | length > 0) | ternary(hostvars[item].wg.peer_ip, item) }}:{{ server_params.port }}
   loop: "{{ peers | difference([inventory_hostname]) }}"
   when: params.role == 'server'
 

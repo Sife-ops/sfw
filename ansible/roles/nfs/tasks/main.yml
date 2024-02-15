@@ -12,7 +12,7 @@
 
 # - name: asdf
 #   debug:
-#     var: server_params
+#     var: ansible_facts['os_family']
 #   # when: params.role == 'server'
 
 # - meta: end_play
@@ -22,6 +22,12 @@
     name: nfs-kernel-server
     state: present
   when: params.role == 'server'
+
+- name: install nfs utilities
+  ansible.builtin.package:
+    name: nfs-common
+    state: present
+  when: params.role == 'client' and not params.ignore | default(False) and ansible_facts['os_family'] == 'Debian'
 
 - name: create nfs export dir
   ansible.builtin.file:
@@ -59,4 +65,4 @@
     # state: present
     # state: mounted
     state: ephemeral
-  when: params.role == 'client'
+  when: params.role == 'client' and not params.ignore | default(False)
