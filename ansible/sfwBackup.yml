@@ -1,23 +1,27 @@
 ---
 - name: backup postgres files
-  hosts: sfw_manager
+  hosts: remote
   remote_user: root
-  tasks:
+
+  pre_tasks:
     - name: stop postgres
       community.docker.docker_container:
         name: sfw-db
         state: stopped
+
     - name: create archive
       ansible.builtin.shell:
         cmd: "tar -cvpf sfw-db-latest.tar pg"
         chdir: /home/sfw
+
     - name: download archive
       ansible.builtin.fetch:
         src: /home/sfw/sfw-db-latest.tar
         dest: ./tmp/
         flat: yes
 
-- import_playbook: 12.yml
+  roles:
+    - role: postgres
 
 
 # - name: transfer postgres files
