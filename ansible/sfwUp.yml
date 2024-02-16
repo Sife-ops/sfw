@@ -7,12 +7,7 @@
 
   roles:
     - role: wireguard
-      tags:
-        - wireguard
-
     - role: nfs
-      tags:
-        - nfs
 
 - name: ssh, swap, postgres, golang
   hosts: remote
@@ -41,21 +36,9 @@
 
   roles:
     - role: sshcopy
-      tags:
-        - sshcopy
-
     - role: swap
-      tags:
-        - swap
-
     - role: postgres
-      tags:
-        - postgres
-    
     - role: golang
-      tags:
-        - golang
-    
     - role: reboot
 
   post_tasks:
