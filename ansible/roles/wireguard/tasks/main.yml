@@ -82,13 +82,13 @@
 
 - name: configure wireguard for client
   ansible.builtin.copy:
+    dest: "/etc/wireguard/wg0.conf"
     content: |
       [Interface]
       Address = {{ params.ip }}/24
       ListenPort = {{ server_params.port }}
       PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/tmp/wg/keyprivate') }}
       # peers
-    dest: "/etc/wireguard/wg0.conf"
   when: params.role == 'client' and not params.ignore | default(False)
 
 - name: configure wireguard peer for client

@@ -2,15 +2,13 @@
 ---
 - name: wireguard, nfs
   hosts: all
-  remote_user: root
+  remote_user: root # todo different become methods per host???
+  become: true
 
   roles:
     - role: wireguard
       tags:
         - wireguard
-
-    # todo mb reboot here
-    # - role: reboot
 
     - role: nfs
       tags:
@@ -74,8 +72,6 @@
           # - python3-psycopg
       # when: dfjsaofjdskafdsa
 
-# todo mb reboot here
-
 - name: sfw repo
   hosts: remote
   remote_user: sfw
@@ -104,7 +100,7 @@
 
     # todo path not working w ansible.builtin.shell
     - name: add sfw bin dirs to path
-      remote_user: root
+      become: true
       ansible.builtin.blockinfile:
         path: /etc/profile
         marker: "# {mark} sfw bin {{ inventory_hostname }}"
