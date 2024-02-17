@@ -59,7 +59,7 @@ func datamineWorld(ctx context.Context, godSeed GodSeed) (GodSeed, error) {
 
 		for xc := x1 / 16; xc < (x2+1)/16; xc++ {
 			for zc := z1 / 16; zc < (z2+1)/16; zc++ {
-				data, err := regions[rx][rz].ReadSector(ToSector(xc), ToSector(zc))
+				data, err := regions[rx+1][rz+1].ReadSector(ToSector(xc), ToSector(zc))
 				if err != nil {
 					return godSeed, err
 				}
@@ -121,7 +121,7 @@ func datamineWorld(ctx context.Context, godSeed GodSeed) (GodSeed, error) {
 
 		for xc := x1 / 16; xc < (x2+1)/16; xc++ {
 			for zc := z1 / 16; zc < (z2+1)/16; zc++ {
-				data, err := regions[rx][rz].ReadSector(ToSector(xc), ToSector(zc))
+				data, err := regions[rx+1][rz+1].ReadSector(ToSector(xc), ToSector(zc))
 				if err != nil {
 					return godSeed, err
 				}
