@@ -13,7 +13,7 @@ import (
 )
 
 func datamineWorld(ctx context.Context, godSeed GodSeed) (GodSeed, error) {
-	regions := [][]*region.Region{{nil, nil}, {nil, nil}, {nil, nil}, {nil, nil}}
+	regions := [][]*region.Region{{nil, nil}, {nil, nil}}
 	for q := 0; q < 4; q++ {
 		rx := (q / 2) - 1
 		rz := (q % 2) - 1
