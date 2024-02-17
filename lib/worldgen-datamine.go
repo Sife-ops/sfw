@@ -124,7 +124,7 @@ func datamineWorld(ctx context.Context, godSeed GodSeed) (GodSeed, error) {
 			godSeed.ShipwreckAreaX2(), godSeed.ShipwreckAreaZ2(),
 		)
 		if err != nil {
-			log.Printf("info ravine %s", err.Error())
+			log.Printf("info shipwreck %s", err.Error())
 			continue
 		}
 
