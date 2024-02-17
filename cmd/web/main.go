@@ -12,7 +12,6 @@ import (
 	"sfw/lib"
 	"strings"
 	"text/template"
-	"time"
 )
 
 var asyncErrC = make(chan error)
@@ -20,7 +19,7 @@ var sigC = make(chan os.Signal, 1)
 
 func init() {
 	signal.Notify(sigC, os.Interrupt)
-	log.SetOutput(io.MultiWriter(os.Stdout, lib.FileLogger{}, lib.SockLogger{}))
+	log.SetOutput(io.MultiWriter(os.Stdout, lib.SockLogger{}))
 }
 
 func main() {
@@ -32,8 +31,8 @@ func main() {
 func run() error {
 	log.Printf("info starting gud web server")
 
-	<-time.After(3 * time.Second)
-	return nil
+	// <-time.After(3 * time.Second)
+	// return nil
 
 	for {
 		s := http.Server{
@@ -113,8 +112,21 @@ func compRoot(t *template.Template) (*template.Template, error) {
 			<title>sfw</title>
 		</head>
 		<body>
-			<h1>sup sup sup</h1>
-			{{ block "compBar" . }}<div>template fail!</div>{{ end }}
+			<h1>generating god seed</h1>
+
+			<th>
+				<td> </td>
+				<td> </td>
+				<td> </td>
+			</th>
+
+			{{ range .seeds }}
+			<tr>
+				<td> </td>
+				<td> </td>
+				<td> </td>
+			</tr>
+			{{ end }}
 		</body>
 		</html>
 	`)
@@ -149,9 +161,7 @@ func comps(tfnRoot compFn, tfns ...compFn) (*template.Template, error) {
 	return t, nil
 }
 
-func wrapErr(
-	hfn func(w http.ResponseWriter, r *http.Request) error,
-) http.HandlerFunc {
+func wrapErr(hfn func(w http.ResponseWriter, r *http.Request) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := hfn(w, r); err != nil {
 			log.Printf("error %v", err)
@@ -161,15 +171,13 @@ func wrapErr(
 }
 
 func root(w http.ResponseWriter, r *http.Request) error {
-	// seeds := []lib.GodSeed{}
-	// if err := lib.Db.Select(&seeds,
-	// 	`SELECT *
-	// 	FROM seed`,
-	// ); err != nil {
-	// 	// log.Printf("0 %v", err)
-	// 	// http.Error(w, "database", http.StatusInternalServerError)
-	// 	return err
-	// }
+	seeds := []lib.GodSeed{}
+	if err := lib.Db.Select(&seeds,
+		`SELECT *
+		FROM seed`,
+	); err != nil {
+		return err
+	}
 	// log.Printf("%v", seeds)
 	// return nil
 
@@ -185,7 +193,7 @@ func root(w http.ResponseWriter, r *http.Request) error {
 	log.Printf("info %s", t.DefinedTemplates())
 
 	if err := t.Execute(w, map[string]interface{}{
-		// "seeds": seeds,
+		"seeds": seeds,
 	}); err != nil {
 		return err
 	}

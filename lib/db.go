@@ -110,11 +110,10 @@ func (g *GodSeed) ShipwreckAreaZ2() int {
 
 func (g *GodSeed) NetherChunksToBastion() (netherChunks2Load []Coords) {
 	bz, bx := *g.BastionZ+8, *g.BastionX+8
-	// log.Printf("info bastion chunk center coords %d,%d", bx, bz)
 	s := float64(bz) / float64(bx)
-	// log.Printf("info bastion slope %f", s)
 	bxa := math.Abs(float64(bx))
 
+Outer:
 	for i := 1; i < int(bxa); i++ {
 		x := i
 		if bx < 0 {
@@ -122,16 +121,15 @@ func (g *GodSeed) NetherChunksToBastion() (netherChunks2Load []Coords) {
 		}
 
 		a, b := int(math.Floor(float64(x)/16)), int(math.Floor(float64(x)*s/16))
-		hasChunk := false
 		for _, v := range netherChunks2Load {
 			if v.X == a && v.Z == b {
-				hasChunk = true
+				continue Outer
 			}
 		}
-		if hasChunk == false {
-			netherChunks2Load = append(netherChunks2Load, Coords{a, b})
-		}
+		
+		netherChunks2Load = append(netherChunks2Load, Coords{a, b})
 	}
+
 	return
 }
 
