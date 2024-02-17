@@ -9,10 +9,10 @@ func WorldgenTask(ctx context.Context, job GodSeed) (GodSeed, error) {
 		return job, err
 	}
 
-	gs, err := datamineWorld_(ctx, job)
+	godSeed, err := datamineWorld(ctx, job)
 	if err != nil {
 		return job, err
 	}
 
-	return gs, nil
+	return godSeed, nil
 }
