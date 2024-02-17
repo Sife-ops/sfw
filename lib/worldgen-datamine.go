@@ -18,10 +18,19 @@ func datamineWorld(ctx context.Context, godSeed GodSeed) (GodSeed, error) {
 		rx := (q / 2) - 1
 		rz := (q % 2) - 1
 
-		r, err := region.Open(fmt.Sprintf(
+		mca := fmt.Sprintf(
 			"%s/tmp/sfw0/data/world/region/r.%d.%d.mca",
 			MustString(os.Getwd()), rx, rz,
-		))
+		)
+
+		// log.Printf("info trying to stat %d %d", rx, rz)
+		fileInfo, err := os.Stat(mca)
+		if err != nil || fileInfo.Size() < 1 {
+			continue
+		}
+
+		// log.Printf("info trying to open %d %d", rx, rz)
+		r, err := region.Open(mca)
 		if err != nil {
 			return godSeed, err
 		}
@@ -236,6 +245,8 @@ func datamineWorld(ctx context.Context, godSeed GodSeed) (GodSeed, error) {
 func toRegionArea(rx int, rz int, x1 int, z1 int, x2 int, z2 int) (int, int, int, int, error) {
 	var err error
 
+	area := fmt.Sprintf("%d %d %d %d", x1, z1, x2, z2)
+
 	if rx < 0 {
 		if x1 > rx {
 			err = errors.New("")
@@ -269,7 +280,7 @@ func toRegionArea(rx int, rz int, x1 int, z1 int, x2 int, z2 int) (int, int, int
 	}
 
 	if err != nil {
-		err = fmt.Errorf("area %d %d %d %d does not overlap region %d %d", x1, z1, x2, z2, rx, rz)
+		err = fmt.Errorf("area %s does not overlap region %d %d", area, rx, rz)
 		log.Printf("info %v", err)
 	}
 
