@@ -18,7 +18,7 @@ func Cubiomes(ctx context.Context) (GodSeed, error) {
 	}
 
 	outCubiomesArr := strings.Split(string(outCubiomes), ":")
-	godSeed := GodSeed{
+	seed := GodSeed{
 		Seed:             ToStringRef(outCubiomesArr[0]),
 		SpawnX:           MustIntRef(strconv.Atoi(strings.Split(outCubiomesArr[1], ",")[0])),
 		SpawnZ:           MustIntRef(strconv.Atoi(strings.Split(outCubiomesArr[1], ",")[1])),
@@ -31,5 +31,5 @@ func Cubiomes(ctx context.Context) (GodSeed, error) {
 		FinishedCubiomes: ToIntRef(1),
 	}
 
-	return godSeed, nil
+	return seed, nil
 }

@@ -124,11 +124,11 @@ func generate(ctx context.Context) {
 		return
 	}
 
-	godSeedC := make(chan lib.GodSeed, 1)
+	seedWorldgenC := make(chan lib.GodSeed, 1)
 	go func() {
 	Dilate:
 		// todo more params
-		gs, err := lib.WorldgenTask(ctx, cubiomesSeed)
+		seedWorldgen, err := lib.WorldgenTask(ctx, cubiomesSeed)
 		if err != nil {
 			fmt.Printf(">>> ***** WORLDGEN IS DILATING *****\n")
 			fmt.Printf(">>> reason: %v\n", err)
@@ -159,16 +159,16 @@ func generate(ctx context.Context) {
 			generateResetC <- struct{}{}
 			return
 		}
-		godSeedC <- gs
+		seedWorldgenC <- seedWorldgen
 	}()
 
-	var godSeed lib.GodSeed
+	var seedWorldgen lib.GodSeed
 	select {
 	case <-ctx.Done():
 		<-generatingC
 		return
-	case gs := <-godSeedC:
-		godSeed = gs
+	case s := <-seedWorldgenC:
+		seedWorldgen = s
 	}
 
 	if _, err := tx.NamedExec(
@@ -182,7 +182,7 @@ func generate(ctx context.Context) {
 			finished_worldgen=1 
 		WHERE 
 			seed=:seed`,
-		&godSeed,
+		&seedWorldgen,
 	); err != nil {
 		generateErrC <- err
 		<-generatingC

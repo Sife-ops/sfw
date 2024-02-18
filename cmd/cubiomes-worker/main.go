@@ -115,8 +115,8 @@ func loopPollDb(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(1 * time.Second):
-			godSeeds := []lib.GodSeed{}
-			if err := lib.Db.Select(&godSeeds,
+			seedsNoWorldgen := []lib.GodSeed{}
+			if err := lib.Db.Select(&seedsNoWorldgen,
 				`SELECT * 
 				FROM seed 
 				WHERE finished_worldgen IS NULL`,
@@ -126,14 +126,14 @@ func loopPollDb(ctx context.Context) {
 			}
 
 			switch {
-			case len(godSeeds) < hysteresisMin:
+			case len(seedsNoWorldgen) < hysteresisMin:
 				if len(asyncIdleC) > 0 {
 					for len(asyncIdleC) > 0 {
 						<-asyncIdleC
 					}
 					log.Printf("info changed idle to false")
 				}
-			case len(godSeeds) > hysteresisMax && *lib.FlagCwLim:
+			case len(seedsNoWorldgen) > hysteresisMax && *lib.FlagCwLim:
 				if len(asyncIdleC) < 1 {
 					asyncIdleC <- struct{}{}
 					asyncStopC <- struct{}{}
@@ -141,7 +141,7 @@ func loopPollDb(ctx context.Context) {
 				}
 			default:
 				if !notifiedIdle {
-					log.Printf("info idle with %d fresh seeds", len(godSeeds))
+					log.Printf("info idle with %d fresh seeds", len(seedsNoWorldgen))
 					notifiedIdle = true
 				}
 			}

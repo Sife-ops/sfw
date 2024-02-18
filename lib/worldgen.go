@@ -4,15 +4,15 @@ import (
 	"context"
 )
 
-func WorldgenTask(ctx context.Context, job GodSeed) (GodSeed, error) {
-	if err := generateWorld(ctx, job); err != nil {
-		return job, err
+func WorldgenTask(ctx context.Context, seed GodSeed) (GodSeed, error) {
+	if err := generateWorld(ctx, seed); err != nil {
+		return seed, err
 	}
 
-	godSeed, err := datamineWorld(ctx, job)
+	seedWorldgen, err := datamineWorld(ctx, seed)
 	if err != nil {
-		return job, err
+		return seed, err
 	}
 
-	return godSeed, nil
+	return seedWorldgen, nil
 }
