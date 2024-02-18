@@ -12,7 +12,7 @@ import (
 	"github.com/Tnze/go-mc/save/region"
 )
 
-func datamineWorld(ctx context.Context, seed GodSeed) (GodSeed, error) {
+func datamineWorld(ctx context.Context, world World) (World, error) {
 	regions := [][]*region.Region{{nil, nil}, {nil, nil}}
 	for q := 0; q < 4; q++ {
 		rx := (q / 2) - 1
@@ -35,7 +35,7 @@ func datamineWorld(ctx context.Context, seed GodSeed) (GodSeed, error) {
 
 		r, err := region.Open(mca)
 		if err != nil {
-			return seed, err
+			return world, err
 		}
 
 		defer func() {
@@ -62,8 +62,8 @@ func datamineWorld(ctx context.Context, seed GodSeed) (GodSeed, error) {
 
 		x1, z1, x2, z2, err := toRegionArea(
 			rx, rz,
-			seed.RavineAreaX1(), seed.RavineAreaZ1(),
-			seed.RavineAreaX2(), seed.RavineAreaZ2(),
+			world.RavineAreaX1(), world.RavineAreaZ1(),
+			world.RavineAreaX2(), world.RavineAreaZ2(),
 		)
 		if err != nil {
 			log.Printf("info ravine %s", err.Error())
@@ -74,18 +74,18 @@ func datamineWorld(ctx context.Context, seed GodSeed) (GodSeed, error) {
 			for zc := z1 / 16; zc < (z2+1)/16; zc++ {
 				data, err := regions[rx+1][rz+1].ReadSector(ToSector(xc), ToSector(zc))
 				if err != nil {
-					return seed, err
+					return world, err
 				}
 
 				var chunkSave save.Chunk
 				err = chunkSave.Load(data)
 				if err != nil {
-					return seed, err
+					return world, err
 				}
 
 				chunkLevel, err := level.ChunkFromSave(&chunkSave)
 				if err != nil {
-					return seed, err
+					return world, err
 				}
 
 				y10 := 256 * 10
@@ -125,8 +125,8 @@ func datamineWorld(ctx context.Context, seed GodSeed) (GodSeed, error) {
 
 		x1, z1, x2, z2, err := toRegionArea(
 			rx, rz,
-			seed.ShipwreckAreaX1(), seed.ShipwreckAreaZ1(),
-			seed.ShipwreckAreaX2(), seed.ShipwreckAreaZ2(),
+			world.ShipwreckAreaX1(), world.ShipwreckAreaZ1(),
+			world.ShipwreckAreaX2(), world.ShipwreckAreaZ2(),
 		)
 		if err != nil {
 			log.Printf("info shipwreck %s", err.Error())
@@ -137,13 +137,13 @@ func datamineWorld(ctx context.Context, seed GodSeed) (GodSeed, error) {
 			for zc := z1 / 16; zc < (z2+1)/16; zc++ {
 				data, err := regions[rx+1][rz+1].ReadSector(ToSector(xc), ToSector(zc))
 				if err != nil {
-					return seed, err
+					return world, err
 				}
 
 				var chunkSave save.Chunk
 				err = chunkSave.Load(data)
 				if err != nil {
-					return seed, err
+					return world, err
 				}
 
 				if len(chunkSave.Level.Structures.Starts.Shipwreck.Children) < 1 {
@@ -169,14 +169,14 @@ func datamineWorld(ctx context.Context, seed GodSeed) (GodSeed, error) {
 
 	*/
 
-	netherChunkCoords := seed.NetherChunksToBastion()
+	netherChunkCoords := world.NetherChunksToBastion()
 
 	region, err := region.Open(fmt.Sprintf(
 		"%s/tmp/sfw0/data/world/DIM-1/region/r.%d.%d.mca",
 		MustString(os.Getwd()), netherChunkCoords[0].X, netherChunkCoords[0].Z,
 	))
 	if err != nil {
-		return seed, err
+		return world, err
 	}
 
 	percentageOfAir := []int{}
@@ -184,18 +184,18 @@ func datamineWorld(ctx context.Context, seed GodSeed) (GodSeed, error) {
 	for _, v := range netherChunkCoords {
 		data, err := region.ReadSector(ToSector(v.X), ToSector(v.Z))
 		if err != nil {
-			return seed, err
+			return world, err
 		}
 
 		var chunkSave save.Chunk
 		err = chunkSave.Load(data)
 		if err != nil {
-			return seed, err
+			return world, err
 		}
 
 		chunkLevel, err := level.ChunkFromSave(&chunkSave)
 		if err != nil {
-			return seed, err
+			return world, err
 		}
 
 		airBlocks := 0
@@ -215,7 +215,7 @@ func datamineWorld(ctx context.Context, seed GodSeed) (GodSeed, error) {
 
 	/*          */
 
-	log.Printf("info *+* seed: %s", *seed.Seed)
+	log.Printf("info *+* seed: %s", *world.Seed)
 	log.Printf("info *+* shipwrecks with iron: %d (%v)", len(shipwrecksWithIron), shipwrecksWithIron)
 	log.Printf(
 		"info *+* exposed ravine blocks within %d chunk radius: %d",
@@ -228,12 +228,12 @@ func datamineWorld(ctx context.Context, seed GodSeed) (GodSeed, error) {
 		log.Printf("info *+* avg. pc. of air toward bastion: %d", percentageOfAirAvg)
 	}
 
-	seed.RavineProximity = ToIntRef(Cfg.Worldgen.RavineProximity)
-	seed.ExposedRavineBlocks = ToIntRef(exposedRavineBlocks)
-	seed.IronShipwrecks = ToIntRef(len(shipwrecksWithIron))
-	seed.AvgBastionAir = ToIntRef(percentageOfAirAvg)
+	world.RavineProximity = ToIntRef(Cfg.Worldgen.RavineProximity)
+	world.ExposedRavineBlocks = ToIntRef(exposedRavineBlocks)
+	world.IronShipwrecks = ToIntRef(len(shipwrecksWithIron))
+	world.AvgBastionAir = ToIntRef(percentageOfAirAvg)
 
-	return seed, nil
+	return world, nil
 }
 
 func toRegionArea(rx int, rz int, x1 int, z1 int, x2 int, z2 int) (int, int, int, int, error) {

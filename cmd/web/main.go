@@ -171,7 +171,7 @@ func wrapErr(hfn func(w http.ResponseWriter, r *http.Request) error) http.Handle
 }
 
 func root(w http.ResponseWriter, r *http.Request) error {
-	seeds := []lib.GodSeed{}
+	seeds := []lib.World{}
 	if err := lib.Db.Select(&seeds,
 		`SELECT *
 		FROM seed`,

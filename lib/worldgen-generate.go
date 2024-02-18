@@ -17,8 +17,8 @@ import (
 //// generate world
 ////
 
-func generateWorld(ctx context.Context, job GodSeed) error {
-	log.Printf("info generating world files for %s", *job.Seed)
+func generateWorld(ctx context.Context, world World) error {
+	log.Printf("info generating world files for %s", *world.Seed)
 
 	log.Printf("info killing old container")
 	if err := KillMcContainer(ctx); err != nil {
@@ -51,7 +51,7 @@ func generateWorld(ctx context.Context, job GodSeed) error {
 	}
 
 	log.Printf("info starting minecraft server container")
-	mc, err := ContainerCreateMc(ctx, job.Seed)
+	mc, err := ContainerCreateMc(ctx, world.Seed)
 	if err != nil {
 		return err
 	}
@@ -77,20 +77,20 @@ func generateWorld(ctx context.Context, job GodSeed) error {
 	if ec, err := McExec(ctx, mc.ID, []string{"rcon-cli",
 		fmt.Sprintf(
 			"forceload add %d %d %d %d",
-			job.RavineAreaX1(), job.RavineAreaZ1(), job.RavineAreaX2(), job.RavineAreaZ2(),
+			world.RavineAreaX1(), world.RavineAreaZ1(), world.RavineAreaX2(), world.RavineAreaZ2(),
 		),
 	}); ec != 0 && err != nil {
 		return err
 	} else {
 		log.Printf(
 			"info rcon forceloaded overworld area %d %d %d %d",
-			job.RavineAreaX1(), job.RavineAreaZ1(), job.RavineAreaX2(), job.RavineAreaZ2(),
+			world.RavineAreaX1(), world.RavineAreaZ1(), world.RavineAreaX2(), world.RavineAreaZ2(),
 		)
 	}
 
 	// nether
 	forceloadedNetherChunks := []Coords{}
-	for _, v := range job.NetherChunksToBastion() {
+	for _, v := range world.NetherChunksToBastion() {
 		forceloadedNetherChunks = append(forceloadedNetherChunks, Coords{X: v.X, Z: v.Z})
 		if ec, err := McExec(ctx, mc.ID, []string{"rcon-cli",
 			fmt.Sprintf(

@@ -8,17 +8,15 @@ import (
 )
 
 // todo return 'continue' bool, only return error if not error 33
-func Cubiomes(ctx context.Context) (GodSeed, error) {
-	// seed := rand.Uint64()
-
+func Cubiomes(ctx context.Context) (World, error) {
 	execCubiomes := exec.CommandContext(ctx, "./bin/cubiomes")
 	outCubiomes, err := execCubiomes.Output()
 	if err != nil {
-		return GodSeed{}, err
+		return World{}, err
 	}
 
 	outCubiomesArr := strings.Split(string(outCubiomes), ":")
-	seed := GodSeed{
+	world := World{
 		Seed:             ToStringRef(outCubiomesArr[0]),
 		SpawnX:           MustIntRef(strconv.Atoi(strings.Split(outCubiomesArr[1], ",")[0])),
 		SpawnZ:           MustIntRef(strconv.Atoi(strings.Split(outCubiomesArr[1], ",")[1])),
@@ -31,5 +29,5 @@ func Cubiomes(ctx context.Context) (GodSeed, error) {
 		FinishedCubiomes: ToIntRef(1),
 	}
 
-	return seed, nil
+	return world, nil
 }

@@ -89,18 +89,18 @@ func loopCubiomes(ctx context.Context) {
 				continue
 			}
 
-			cubiomesSeed, err := lib.Cubiomes(ctx)
+			world, err := lib.Cubiomes(ctx)
 			if err != nil {
 				continue
 			}
 
-			log.Printf("info saving potential god seed %s", *cubiomesSeed.Seed)
+			log.Printf("info saving cubiomes world %s", *world.Seed)
 			if _, err := lib.Db.NamedExec(
 				`INSERT INTO seed 
 					(seed, spawn_x, spawn_z, bastion_x, bastion_z, shipwreck_x, shipwreck_z, fortress_x, fortress_z, finished_cubiomes)
 				VALUES 
 					(:seed, :spawn_x, :spawn_z, :bastion_x, :bastion_z, :shipwreck_x, :shipwreck_z, :fortress_x, :fortress_z, :finished_cubiomes)`,
-				&cubiomesSeed,
+				&world,
 			); err != nil {
 				asyncErrC <- err
 			}
@@ -115,8 +115,8 @@ func loopPollDb(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(1 * time.Second):
-			seedsNoWorldgen := []lib.GodSeed{}
-			if err := lib.Db.Select(&seedsNoWorldgen,
+			worldsNotGenerated := []lib.World{}
+			if err := lib.Db.Select(&worldsNotGenerated,
 				`SELECT * 
 				FROM seed 
 				WHERE finished_worldgen IS NULL`,
@@ -126,14 +126,14 @@ func loopPollDb(ctx context.Context) {
 			}
 
 			switch {
-			case len(seedsNoWorldgen) < hysteresisMin:
+			case len(worldsNotGenerated) < hysteresisMin:
 				if len(asyncIdleC) > 0 {
 					for len(asyncIdleC) > 0 {
 						<-asyncIdleC
 					}
 					log.Printf("info changed idle to false")
 				}
-			case len(seedsNoWorldgen) > hysteresisMax && *lib.FlagCwLim:
+			case len(worldsNotGenerated) > hysteresisMax && *lib.FlagCwLim:
 				if len(asyncIdleC) < 1 {
 					asyncIdleC <- struct{}{}
 					asyncStopC <- struct{}{}
@@ -141,7 +141,7 @@ func loopPollDb(ctx context.Context) {
 				}
 			default:
 				if !notifiedIdle {
-					log.Printf("info idle with %d fresh seeds", len(seedsNoWorldgen))
+					log.Printf("info idle with %d fresh seeds", len(worldsNotGenerated))
 					notifiedIdle = true
 				}
 			}

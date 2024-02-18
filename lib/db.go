@@ -43,7 +43,7 @@ func init() {
 	Db = db
 }
 
-type GodSeed struct {
+type World struct {
 	Id   int     `db:"id"`
 	Seed *string `db:"seed"`
 
@@ -76,39 +76,39 @@ type Coords struct {
 	Z int
 }
 
-func (g *GodSeed) RavineAreaX1() int {
+func (g *World) RavineAreaX1() int {
 	return *g.ShipwreckX - Cfg.Worldgen.RavineProximity*16
 }
 
-func (g *GodSeed) RavineAreaZ1() int {
+func (g *World) RavineAreaZ1() int {
 	return *g.ShipwreckZ - Cfg.Worldgen.RavineProximity*16
 }
 
-func (g *GodSeed) RavineAreaX2() int {
+func (g *World) RavineAreaX2() int {
 	return *g.ShipwreckX + Cfg.Worldgen.RavineProximity*16 + 15
 }
 
-func (g *GodSeed) RavineAreaZ2() int {
+func (g *World) RavineAreaZ2() int {
 	return *g.ShipwreckZ + Cfg.Worldgen.RavineProximity*16 + 15
 }
 
-func (g *GodSeed) ShipwreckAreaX1() int {
+func (g *World) ShipwreckAreaX1() int {
 	return *g.ShipwreckX - 16
 }
 
-func (g *GodSeed) ShipwreckAreaZ1() int {
+func (g *World) ShipwreckAreaZ1() int {
 	return *g.ShipwreckZ - 16
 }
 
-func (g *GodSeed) ShipwreckAreaX2() int {
+func (g *World) ShipwreckAreaX2() int {
 	return *g.ShipwreckX + 31
 }
 
-func (g *GodSeed) ShipwreckAreaZ2() int {
+func (g *World) ShipwreckAreaZ2() int {
 	return *g.ShipwreckZ + 31
 }
 
-func (g *GodSeed) NetherChunksToBastion() (netherChunks2Load []Coords) {
+func (g *World) NetherChunksToBastion() (netherChunks2Load []Coords) {
 	bz, bx := *g.BastionZ+8, *g.BastionX+8
 	s := float64(bz) / float64(bx)
 	bxa := math.Abs(float64(bx))

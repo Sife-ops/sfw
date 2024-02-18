@@ -69,7 +69,7 @@ func run() error {
 }
 
 func generate(ctx context.Context) {
-	cubiomesSeedC := make(chan lib.GodSeed, 1)
+	worldNotGeneratedC := make(chan lib.World, 1)
 	go func() {
 		tx, err := lib.Db.BeginTxx(ctx, nil)
 		if err != nil {
@@ -78,8 +78,8 @@ func generate(ctx context.Context) {
 			return
 		}
 
-		cs := []lib.GodSeed{}
-		if err := tx.Select(&cs,
+		world := []lib.World{}
+		if err := tx.Select(&world,
 			`SELECT * 
 			FROM seed 
 			WHERE finished_worldgen IS NULL`,
@@ -87,7 +87,7 @@ func generate(ctx context.Context) {
 			generateErrC <- err
 			return
 		}
-		if len(cs) < 1 {
+		if len(world) < 1 {
 			generateResetC <- struct{}{}
 			return
 		}
@@ -95,7 +95,7 @@ func generate(ctx context.Context) {
 			`UPDATE seed
 			SET finished_worldgen=0
 			WHERE seed=$1`,
-			cs[0].Seed,
+			world[0].Seed,
 		); err != nil {
 			generateErrC <- err
 			return
@@ -105,16 +105,16 @@ func generate(ctx context.Context) {
 			generateErrC <- err
 			return
 		}
-		cubiomesSeedC <- cs[0]
+		worldNotGeneratedC <- world[0]
 	}()
 
-	var cubiomesSeed lib.GodSeed
+	var worldNotGenerated lib.World
 	select {
 	case <-ctx.Done():
 		<-generatingC
 		return
-	case cs := <-cubiomesSeedC:
-		cubiomesSeed = cs
+	case world := <-worldNotGeneratedC:
+		worldNotGenerated = world
 	}
 
 	tx, err := lib.Db.BeginTxx(ctx, nil)
@@ -124,11 +124,11 @@ func generate(ctx context.Context) {
 		return
 	}
 
-	seedWorldgenC := make(chan lib.GodSeed, 1)
+	worldGeneratedC := make(chan lib.World, 1)
 	go func() {
 	Dilate:
 		// todo more params
-		seedWorldgen, err := lib.WorldgenTask(ctx, cubiomesSeed)
+		worldGenerated, err := lib.WorldgenTask(ctx, worldNotGenerated)
 		if err != nil {
 			fmt.Printf(">>> ***** WORLDGEN IS DILATING *****\n")
 			fmt.Printf(">>> reason: %v\n", err)
@@ -159,16 +159,16 @@ func generate(ctx context.Context) {
 			generateResetC <- struct{}{}
 			return
 		}
-		seedWorldgenC <- seedWorldgen
+		worldGeneratedC <- worldGenerated
 	}()
 
-	var seedWorldgen lib.GodSeed
+	var worldGenerated lib.World
 	select {
 	case <-ctx.Done():
 		<-generatingC
 		return
-	case s := <-seedWorldgenC:
-		seedWorldgen = s
+	case s := <-worldGeneratedC:
+		worldGenerated = s
 	}
 
 	if _, err := tx.NamedExec(
@@ -182,7 +182,7 @@ func generate(ctx context.Context) {
 			finished_worldgen=1 
 		WHERE 
 			seed=:seed`,
-		&seedWorldgen,
+		&worldGenerated,
 	); err != nil {
 		generateErrC <- err
 		<-generatingC
