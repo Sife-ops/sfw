@@ -120,7 +120,7 @@ func compRoot(t *template.Template) (*template.Template, error) {
 				<td> </td>
 			</th>
 
-			{{ range .seeds }}
+			{{ range .worlds }}
 			<tr>
 				<td> </td>
 				<td> </td>
@@ -171,10 +171,10 @@ func wrapErr(hfn func(w http.ResponseWriter, r *http.Request) error) http.Handle
 }
 
 func root(w http.ResponseWriter, r *http.Request) error {
-	seeds := []lib.World{}
-	if err := lib.Db.Select(&seeds,
+	worlds := []lib.World{}
+	if err := lib.Db.Select(&worlds,
 		`SELECT *
-		FROM seed`,
+		FROM world`,
 	); err != nil {
 		return err
 	}
@@ -193,7 +193,7 @@ func root(w http.ResponseWriter, r *http.Request) error {
 	log.Printf("info %s", t.DefinedTemplates())
 
 	if err := t.Execute(w, map[string]interface{}{
-		"seeds": seeds,
+		"worlds": worlds,
 	}); err != nil {
 		return err
 	}

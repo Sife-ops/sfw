@@ -96,7 +96,7 @@ func loopCubiomes(ctx context.Context) {
 
 			log.Printf("info saving cubiomes world %s", *world.Seed)
 			if _, err := lib.Db.NamedExec(
-				`INSERT INTO seed 
+				`INSERT INTO world
 					(seed, spawn_x, spawn_z, bastion_x, bastion_z, shipwreck_x, shipwreck_z, fortress_x, fortress_z, finished_cubiomes)
 				VALUES 
 					(:seed, :spawn_x, :spawn_z, :bastion_x, :bastion_z, :shipwreck_x, :shipwreck_z, :fortress_x, :fortress_z, :finished_cubiomes)`,
@@ -118,7 +118,7 @@ func loopPollDb(ctx context.Context) {
 			worldsNotGenerated := []lib.World{}
 			if err := lib.Db.Select(&worldsNotGenerated,
 				`SELECT * 
-				FROM seed 
+				FROM world
 				WHERE finished_worldgen IS NULL`,
 			); err != nil {
 				asyncErrC <- err

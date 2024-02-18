@@ -81,7 +81,7 @@ func generate(ctx context.Context) {
 		world := []lib.World{}
 		if err := tx.Select(&world,
 			`SELECT * 
-			FROM seed 
+			FROM world
 			WHERE finished_worldgen IS NULL`,
 		); err != nil {
 			generateErrC <- err
@@ -92,7 +92,7 @@ func generate(ctx context.Context) {
 			return
 		}
 		if _, err := tx.Exec(
-			`UPDATE seed
+			`UPDATE world
 			SET finished_worldgen=0
 			WHERE seed=$1`,
 			world[0].Seed,
@@ -173,7 +173,7 @@ func generate(ctx context.Context) {
 
 	if _, err := tx.NamedExec(
 		`UPDATE 
-			seed 
+			world
 		SET 
 			exposed_ravine_blocks=:exposed_ravine_blocks,
 			iron_shipwrecks=:iron_shipwrecks,
