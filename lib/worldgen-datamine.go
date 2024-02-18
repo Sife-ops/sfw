@@ -24,7 +24,12 @@ func datamineWorld(ctx context.Context, godSeed GodSeed) (GodSeed, error) {
 		)
 
 		fileInfo, err := os.Stat(mca)
-		if err != nil || fileInfo.Size() < 1 {
+		switch {
+		case err != nil:
+			log.Printf("info t.%d.%d.mca error %v", rx, rz, err)
+			continue
+		case fileInfo.Size() < 1:
+			log.Printf("info t.%d.%d.mca is 0 bytes", rx, rz)
 			continue
 		}
 
@@ -146,21 +151,10 @@ func datamineWorld(ctx context.Context, godSeed GodSeed) (GodSeed, error) {
 				}
 
 				for _, v := range chunkSave.Level.Structures.Starts.Shipwreck.Children {
-					if v.Template == "minecraft:shipwreck/rightsideup_backhalf" ||
-						v.Template == "minecraft:shipwreck/rightsideup_backhalf_degraded" ||
-						v.Template == "minecraft:shipwreck/rightsideup_full" ||
-						v.Template == "minecraft:shipwreck/rightsideup_full_degraded" ||
-						v.Template == "minecraft:shipwreck/sideways_backhalf" ||
-						v.Template == "minecraft:shipwreck/sideways_backhalf_degraded" ||
-						v.Template == "minecraft:shipwreck/sideways_full" ||
-						v.Template == "minecraft:shipwreck/sideways_full_degraded" ||
-						v.Template == "minecraft:shipwreck/upsidedown_backhalf" ||
-						v.Template == "minecraft:shipwreck/upsidedown_backhalf_degraded" ||
-						v.Template == "minecraft:shipwreck/upsidedown_full" ||
-						v.Template == "minecraft:shipwreck/upsidedown_full_degraded" ||
-						v.Template == "minecraft:shipwreck/with_mast" ||
-						v.Template == "minecraft:shipwreck/with_mast_degraded" {
-						shipwrecksWithIron = append(shipwrecksWithIron, v.Template)
+					for _, w := range goodShipwrecks {
+						if v.Template == w {
+							shipwrecksWithIron = append(shipwrecksWithIron, v.Template)
+						}
 					}
 				}
 			}
@@ -284,4 +278,21 @@ func toRegionArea(rx int, rz int, x1 int, z1 int, x2 int, z2 int) (int, int, int
 	}
 
 	return x1, z1, x2, z2, err
+}
+
+var goodShipwrecks = []string{
+	"minecraft:shipwreck/rightsideup_backhalf",
+	"minecraft:shipwreck/rightsideup_backhalf_degraded",
+	"minecraft:shipwreck/rightsideup_full",
+	"minecraft:shipwreck/rightsideup_full_degraded",
+	"minecraft:shipwreck/sideways_backhalf",
+	"minecraft:shipwreck/sideways_backhalf_degraded",
+	"minecraft:shipwreck/sideways_full",
+	"minecraft:shipwreck/sideways_full_degraded",
+	"minecraft:shipwreck/upsidedown_backhalf",
+	"minecraft:shipwreck/upsidedown_backhalf_degraded",
+	"minecraft:shipwreck/upsidedown_full",
+	"minecraft:shipwreck/upsidedown_full_degraded",
+	"minecraft:shipwreck/with_mast",
+	"minecraft:shipwreck/with_mast_degraded",
 }
