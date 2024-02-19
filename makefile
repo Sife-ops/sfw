@@ -11,7 +11,7 @@ pkl:
 # todo add dependencies
 
 cw:
-	GOOS=linux GOARCH=amd64 go build -o ./bin/cw ./cmd/cubiomes_retvrn/main.go
+	GOOS=linux GOARCH=amd64 go build -o ./bin/cw ./cmd/cubiomes-worker/main.go
 
 ww:
 	GOOS=linux GOARCH=amd64 go build -o ./bin/ww ./cmd/worldgen-worker/main.go

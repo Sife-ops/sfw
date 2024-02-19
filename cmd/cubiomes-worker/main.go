@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"io"
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -10,141 +10,110 @@ import (
 	"time"
 )
 
-var asyncErrC = make(chan error)
-var asyncIdleC = make(chan struct{}, 1)
-var asyncStopC = make(chan struct{})
-var hysteresisMax = 9
-var hysteresisMin = 6
+var asyncErrC = make(chan error, 1)
 var sigC = make(chan os.Signal, 1)
 var threadsC chan struct{}
+var worldC = make(chan lib.World)
 
 func init() {
 	lib.FlagParse()
-
-	log.SetOutput(io.MultiWriter(os.Stdout, lib.SockLogger{}))
-
-	threadsC = make(chan struct{}, *lib.FlagThreads)
-
 	signal.Notify(sigC, os.Interrupt)
-	if *lib.FlagCwLim {
-		asyncIdleC <- struct{}{}
-	}
+	threadsC = make(chan struct{}, *lib.FlagThreads)
 }
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalf("error %v", err)
+		log.Printf("%v", err)
 	}
 }
 
 func run() error {
-	log.Println("starting cubiomes worker")
-	for {
-		ctx, cancel := context.WithCancel(context.Background())
+	log.Printf("info starting cubiomes worker on %d threads", *lib.FlagThreads)
 
-		go loopPollDb(ctx)
-		for len(threadsC) < *lib.FlagThreads {
-			threadsC <- struct{}{}
-			go loopCubiomes(ctx)
-		}
+	go saveWorld()
 
-		select {
-		case err := <-asyncErrC:
-			log.Printf("fatal error %v", err)
-			cancel()
-			log.Printf("info trying again in 3 seconds")
-			select {
-			case <-time.After(3 * time.Second):
-			case <-sigC:
-				return nil
-			}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-		case <-asyncStopC:
-			cancel()
-
-		case <-sigC:
-			cancel()
-			return nil
-		}
-
-		for len(threadsC) > 0 {
-			log.Printf("info waiting for %d threads to finish", len(threadsC))
-			<-time.After(1 * time.Second)
-			if len(threadsC) < 1 {
-				log.Printf("info no more threads")
-			}
-		}
+	for len(threadsC) < *lib.FlagThreads {
+		threadsC <- struct{}{}
+		go loopCubiomes(ctx)
 	}
+
+	select {
+	case <-sigC:
+	case err := <-asyncErrC:
+		return err
+	}
+
+	return nil
 }
 
 func loopCubiomes(ctx context.Context) {
+	defer func() {
+		<-threadsC
+	}()
+
 	for {
-		select {
-		case <-ctx.Done():
-			<-threadsC
+		world, err := lib.Cubiomes(ctx)
+		switch {
+		case errors.Is(ctx.Err(), context.Canceled):
 			return
-		default:
-			if len(asyncIdleC) > 0 {
-				<-time.After(1 * time.Second)
-				continue
-			}
-
-			world, err := lib.Cubiomes(ctx)
-			if err != nil {
-				continue
-			}
-
-			log.Printf("info saving cubiomes world %s", *world.Seed)
-			if _, err := lib.Db.NamedExec(
-				`INSERT INTO world
-					(seed, spawn_x, spawn_z, bastion_x, bastion_z, shipwreck_x, shipwreck_z, fortress_x, fortress_z, finished_cubiomes)
-				VALUES 
-					(:seed, :spawn_x, :spawn_z, :bastion_x, :bastion_z, :shipwreck_x, :shipwreck_z, :fortress_x, :fortress_z, :finished_cubiomes)`,
-				&world,
-			); err != nil {
-				asyncErrC <- err
-			}
+		case err != nil:
+			asyncErrC <- err
+			return
 		}
+
+		log.Printf("info generated cubiomes world %s", *world.Seed)
+		worldC <- world
 	}
 }
 
-func loopPollDb(ctx context.Context) {
-	notifiedIdle := false
+func saveWorld() {
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(1 * time.Second):
-			worldsNotGenerated := []lib.World{}
-			if err := lib.Db.Select(&worldsNotGenerated,
-				`SELECT * 
-				FROM world
-				WHERE finished_worldgen IS NULL`,
+		world := <-worldC
+
+		doneC := make(chan struct{})
+		errC := make(chan error)
+		go func() {
+			if _, err := lib.Db.NamedExec(
+				`INSERT INTO world (
+					seed,
+					spawn_x, spawn_z,
+					bastion_x, bastion_z,
+					shipwreck_x, shipwreck_z,
+					fortress_x, fortress_z,
+					finished_cubiomes
+				)
+				VALUES (
+					:seed,
+					:spawn_x, :spawn_z,
+					:bastion_x, :bastion_z,
+					:shipwreck_x, :shipwreck_z,
+					:fortress_x, :fortress_z,
+					:finished_cubiomes
+				)`,
+				&world,
 			); err != nil {
-				asyncErrC <- err
+				errC <- err
 				return
 			}
+			doneC <- struct{}{}
+		}()
 
-			switch {
-			case len(worldsNotGenerated) < hysteresisMin:
-				if len(asyncIdleC) > 0 {
-					for len(asyncIdleC) > 0 {
-						<-asyncIdleC
-					}
-					log.Printf("info changed idle to false")
-				}
-			case len(worldsNotGenerated) > hysteresisMax && *lib.FlagCwLim:
-				if len(asyncIdleC) < 1 {
-					asyncIdleC <- struct{}{}
-					asyncStopC <- struct{}{}
-					log.Printf("info changed idle to true")
-				}
-			default:
-				if !notifiedIdle {
-					log.Printf("info idle with %d fresh seeds", len(worldsNotGenerated))
-					notifiedIdle = true
-				}
+		for {
+			select {
+			case <-doneC:
+			case <-sigC:
+				return
+			case err := <-errC:
+				asyncErrC <- err
+				return
+			case <-time.After(3 * time.Second):
+				log.Printf("info database not responding")
+				continue
 			}
+			break
 		}
 	}
 }
