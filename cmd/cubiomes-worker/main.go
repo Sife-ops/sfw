@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -17,13 +18,14 @@ var worldC = make(chan lib.World)
 
 func init() {
 	lib.FlagParse()
+	log.SetOutput(io.MultiWriter(os.Stdout, lib.SockLogger{}))
 	signal.Notify(sigC, os.Interrupt)
 	threadsC = make(chan struct{}, *lib.FlagThreads)
 }
 
 func main() {
 	if err := run(); err != nil {
-		log.Printf("%v", err)
+		log.Fatalf("%v", err)
 	}
 }
 
@@ -42,11 +44,10 @@ func run() error {
 
 	select {
 	case <-sigC:
+		return nil
 	case err := <-asyncErrC:
 		return err
 	}
-
-	return nil
 }
 
 func loopCubiomes(ctx context.Context) {
@@ -73,10 +74,15 @@ func saveWorld(ctx context.Context) {
 	for {
 		world := <-worldC
 
-		doneC := make(chan struct{})
-		errC := make(chan error)
+	Retry:
+		ctxTo, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		savedC := make(chan struct{})
+		errC := make(chan error, 1)
 		go func() {
-			if _, err := lib.Db.NamedExec(
+			if _, err := lib.Db.NamedExecContext(
+				ctxTo,
 				`INSERT INTO world (
 					seed,
 					spawn_x, spawn_z,
@@ -98,22 +104,20 @@ func saveWorld(ctx context.Context) {
 				errC <- err
 				return
 			}
-			doneC <- struct{}{}
+			// todo ctxTo no require check err???
+			savedC <- struct{}{}
 		}()
 
-		for {
-			select {
-			case <-doneC:
-			case err := <-errC:
-				asyncErrC <- err
-				return
-			case <-ctx.Done():
-				return
-			case <-time.After(3 * time.Second):
-				log.Printf("info database not responding")
-				continue
-			}
-			break
+		select {
+		case <-ctxTo.Done():
+			log.Printf("info database not responding")
+			cancel()
+			goto Retry
+		case <-savedC:
+		case err := <-errC:
+			asyncErrC <- err
+		case <-ctx.Done():
+			return
 		}
 	}
 }
