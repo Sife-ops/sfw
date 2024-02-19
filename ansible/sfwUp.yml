@@ -7,6 +7,9 @@
 
   roles:
     - role: wireguard
+      vars:
+        profile: wg0
+      # todo use profile
     - role: nfs
 
 - name: ssh, swap, postgres, golang

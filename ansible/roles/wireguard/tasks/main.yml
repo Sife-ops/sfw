@@ -1,22 +1,21 @@
 ---
-
 - name: populate parameters
   set_fact:
-    params: "{{ hostvars[inventory_hostname].wg | default({ 'role': 'client', 'ignore': True }) }}"
+    params: "{{ hostvars[inventory_hostname][profile] | default({ 'role': 'client', 'ignore': True }) }}"
 
 - name: populate server parameters
   set_fact:
-    server_params: "{{ hostvars[item].wg }}"
+    server_params: "{{ hostvars[item][profile] }}"
     server_hostname: "{{ item }}"
   loop: "{{ groups['all'] }}"
-  when: hostvars[item].wg.role | default('client') == 'server'
+  when: hostvars[item][profile].role | default('client') == 'server'
 
 - name: set peers
   set_fact:
     peers: "{{ peers | default([]) + [item] }}"
   loop: "{{ groups['all'] }}"
-  when: hostvars[item].wg is defined
-  
+  when: hostvars[item][profile] is defined
+
 ###############################################################################
 ## install & gen keys
 
@@ -61,19 +60,19 @@
       ListenPort = {{ server_params.port }}
       PrivateKey = {{ lookup('ansible.builtin.file', './tmp/' + inventory_hostname + '/tmp/wg/keyprivate') }}
       # peers
-    dest: "/etc/wireguard/wg0.conf"
+    dest: "/etc/wireguard/{{ profile }}.conf"
   when: params.role == 'server'
 
 - name: configure wireguard peers for server
   ansible.builtin.blockinfile:
-    path: "/etc/wireguard/wg0.conf"
+    path: "/etc/wireguard/{{ profile }}.conf"
     insertafter: "# peers"
     marker: "# {mark} peer {{ item }}"
     block: |
       [Peer]
       PublicKey = {{ lookup('ansible.builtin.file', './tmp/' + item + '/tmp/wg/keypublic') }}
-      AllowedIPs = {{ hostvars[item].wg.ip }}/32
-      Endpoint = {{ (hostvars[item].wg.peer_ip | default('') | length > 0) | ternary(hostvars[item].wg.peer_ip, item) }}:{{ server_params.port }}
+      AllowedIPs = {{ hostvars[item][profile].ip }}/32
+      Endpoint = {{ (hostvars[item][profile].peer_ip | default('') | length > 0) | ternary(hostvars[item][profile].peer_ip, item) }}:{{ server_params.port }}
   loop: "{{ peers | difference([inventory_hostname]) }}"
   when: params.role == 'server'
 
@@ -82,7 +81,7 @@
 
 - name: configure wireguard for client
   ansible.builtin.copy:
-    dest: "/etc/wireguard/wg0.conf"
+    dest: "/etc/wireguard/{{ profile }}.conf"
     content: |
       [Interface]
       Address = {{ params.ip }}/24
@@ -93,7 +92,7 @@
 
 - name: configure wireguard peer for client
   ansible.builtin.blockinfile:
-    path: "/etc/wireguard/wg0.conf"
+    path: "/etc/wireguard/{{ profile }}.conf"
     insertafter: "# peers"
     marker: "# {mark} peer {{ server_hostname }}"
     block: |
@@ -108,7 +107,7 @@
 
 - name: start & enable wireguard service
   ansible.builtin.systemd_service:
-    name: "wg-quick@wg0"
+    name: "wg-quick@{{ profile }}"
     state: restarted
     enabled: true
   when: not params.ignore | default(False)
