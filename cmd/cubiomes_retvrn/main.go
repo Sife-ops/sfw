@@ -13,6 +13,7 @@ import (
 var asyncErrC = make(chan error, 1)
 var sigC = make(chan os.Signal, 1)
 var threadsC chan struct{}
+var worldC = make(chan lib.World)
 
 func init() {
 	lib.FlagParse()
@@ -27,36 +28,28 @@ func main() {
 }
 
 func run() error {
-	for {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+	log.Printf("info starting cubiomes worker on %d threads", *lib.FlagThreads)
 
-		for len(threadsC) < *lib.FlagThreads {
-			go loopCubiomes(ctx)
-		}
+	go saveWorld()
 
-		select {
-		case <-sigC:
-		case err := <-asyncErrC:
-			cancel()
-			log.Printf("info retry after 3 seconds %v", err)
-			<-time.After(3 * time.Second)
-			for len(threadsC) > 0 {
-				log.Printf("info waiting for %d threads to finish", len(threadsC))
-				<-time.After(1 * time.Second)
-			}
-			for len(asyncErrC) > 0 {
-				<-asyncErrC
-			}
-			continue
-		}
-		break
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	for len(threadsC) < *lib.FlagThreads {
+		threadsC <- struct{}{}
+		go loopCubiomes(ctx)
 	}
+
+	select {
+	case <-sigC:
+	case err := <-asyncErrC:
+		return err
+	}
+
 	return nil
 }
 
 func loopCubiomes(ctx context.Context) {
-	threadsC <- struct{}{}
 	defer func() {
 		<-threadsC
 	}()
@@ -71,27 +64,56 @@ func loopCubiomes(ctx context.Context) {
 			return
 		}
 
-		log.Printf("info saving cubiomes world %s", *world.Seed)
-		if _, err := lib.Db.NamedExec(
-			`INSERT INTO world (
-				seed,
-				spawn_x, spawn_z,
-				bastion_x, bastion_z,
-				shipwreck_x, shipwreck_z,
-				fortress_x, fortress_z,
-				finished_cubiomes
-			)
-			VALUES (
-				:seed,
-				:spawn_x, :spawn_z,
-				:bastion_x, :bastion_z,
-				:shipwreck_x, :shipwreck_z,
-				:fortress_x, :fortress_z,
-				:finished_cubiomes
-			)`, &world,
-		); err != nil {
-			asyncErrC <- err
-			return
+		log.Printf("info generated cubiomes world %s", *world.Seed)
+		worldC <- world
+	}
+}
+
+func saveWorld() {
+	for {
+		world := <-worldC
+
+		doneC := make(chan struct{})
+		errC := make(chan error)
+		go func() {
+			if _, err := lib.Db.NamedExec(
+				`INSERT INTO world (
+					seed,
+					spawn_x, spawn_z,
+					bastion_x, bastion_z,
+					shipwreck_x, shipwreck_z,
+					fortress_x, fortress_z,
+					finished_cubiomes
+				)
+				VALUES (
+					:seed,
+					:spawn_x, :spawn_z,
+					:bastion_x, :bastion_z,
+					:shipwreck_x, :shipwreck_z,
+					:fortress_x, :fortress_z,
+					:finished_cubiomes
+				)`,
+				&world,
+			); err != nil {
+				errC <- err
+				return
+			}
+			doneC <- struct{}{}
+		}()
+
+		for {
+			select {
+			case <-doneC:
+			case <-sigC:
+				return
+			case err := <-errC:
+				asyncErrC <- err
+				return
+			case <-time.After(3 * time.Second):
+				log.Printf("info database not responding")
+				continue
+			}
+			break
 		}
 	}
 }

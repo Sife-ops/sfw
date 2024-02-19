@@ -1,21 +1,13 @@
 ---
-
-- name: populate parameters
-  set_fact:
-    params: "{{ hostvars[inventory_hostname].nfs | default({ 'role': 'client' }) }}"
-
 - name: populate server parameters
   set_fact:
-    server_params: "{{ hostvars[item].nfs }}"
+    server_params: "{{ hostvars[item][profile] }}"
   loop: "{{ groups['all'] }}"
-  when: hostvars[item].nfs.role | default('client') == 'server'
+  when: hostvars[item][profile].role | default('client') == 'server'
 
-# - name: asdf
-#   debug:
-#     var: ansible_facts['os_family']
-#   # when: params.role == 'server'
-
-# - meta: end_play
+- name: populate host parameters
+  set_fact:
+    params: "{{ hostvars[inventory_hostname][profile] | default({ 'ignore': True }) }}"
 
 - name: install nfs server
   ansible.builtin.package:
@@ -31,7 +23,7 @@
 
 - name: create nfs export dir
   ansible.builtin.file:
-    path: "{{ server_params.path }}"
+    path: "/var/nfs/{{ profile }}"
     state: directory
     owner: nobody # todo use sfw?
     group: nogroup # todo use sudo?
@@ -45,7 +37,7 @@
     mode: '0644'
     marker: "# {mark} nfs {{ inventory_hostname }}"
     block: |
-      {{ server_params.path }} {{ server_params.allowed }}(rw,sync,no_subtree_check)
+      /var/nfs/{{ profile }} {{ server_params.allowed }}(rw,sync,no_subtree_check)
   when: params.role | default('') == 'server'
 
 - name: start/enable nfs
@@ -57,8 +49,8 @@
 
 - name: mount nfs export
   ansible.posix.mount:
-    path: "{{ server_params.mount }}"
-    src: "{{ server_params.host }}:{{ server_params.path }}"
+    path: "/tmp/{{ profile }}"
+    src: "{{ server_params.host }}:/var/nfs/{{ profile }}"
     fstype: nfs
     opts: vers=4
     state: "{{ params.state | default('mounted') }}"

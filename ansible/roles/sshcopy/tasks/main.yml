@@ -1,14 +1,14 @@
 ---
-- name: populate parameters
-  set_fact:
-    params: "{{ hostvars[inventory_hostname].sshcopy | default({ 'role': 'client' }) }}"
-
 - name: populate server parameters
   set_fact:
     # server_params: "{{ hostvars[item].wg }}"
     server_hostname: "{{ item }}"
   loop: "{{ groups['all'] }}"
   when: hostvars[item].sshcopy.role | default('client') == 'server'
+
+- name: populate host parameters
+  set_fact:
+    params: "{{ hostvars[inventory_hostname].sshcopy | default({ 'role': 'client' }) }}"
 
 - name: configure sshd
   ansible.builtin.blockinfile:
