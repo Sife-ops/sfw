@@ -30,10 +30,10 @@ func main() {
 func run() error {
 	log.Printf("info starting cubiomes worker on %d threads", *lib.FlagThreads)
 
-	go saveWorld()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	go saveWorld(ctx)
 
 	for len(threadsC) < *lib.FlagThreads {
 		threadsC <- struct{}{}
@@ -69,7 +69,7 @@ func loopCubiomes(ctx context.Context) {
 	}
 }
 
-func saveWorld() {
+func saveWorld(ctx context.Context) {
 	for {
 		world := <-worldC
 
@@ -104,10 +104,10 @@ func saveWorld() {
 		for {
 			select {
 			case <-doneC:
-			case <-sigC:
-				return
 			case err := <-errC:
 				asyncErrC <- err
+				return
+			case <-ctx.Done():
 				return
 			case <-time.After(3 * time.Second):
 				log.Printf("info database not responding")
