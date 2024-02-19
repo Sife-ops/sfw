@@ -83,6 +83,10 @@ func generate(ctx context.Context) {
 			`SELECT * 
 			FROM world
 			WHERE finished_worldgen IS NULL`,
+			// // 9154804515642838022
+			// `SELECT * 
+			// FROM world
+			// WHERE seed='9154804515642838022'`,
 		); err != nil {
 			generateErrC <- err
 			return

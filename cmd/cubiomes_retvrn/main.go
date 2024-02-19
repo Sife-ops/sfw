@@ -27,34 +27,36 @@ func main() {
 }
 
 func run() error {
-Start:
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	for {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-	for len(threadsC) < *lib.FlagThreads {
-		threadsC <- struct{}{}
-		go loopCubiomes(ctx)
-	}
-
-	select {
-	case <-sigC:
-	case err := <-asyncErrC:
-		cancel()
-		log.Printf("info retrying after 3 seconds due to %v", err)
-		<-time.After(3 * time.Second)
-		for len(threadsC) > 0 {
-			<-time.After(1 * time.Second)
+		for len(threadsC) < *lib.FlagThreads {
+			go loopCubiomes(ctx)
 		}
-		for len(asyncErrC) > 0 {
-			<-asyncErrC
-		}
-		goto Start
-	}
 
+		select {
+		case <-sigC:
+		case err := <-asyncErrC:
+			cancel()
+			log.Printf("info retry after 3 seconds %v", err)
+			<-time.After(3 * time.Second)
+			for len(threadsC) > 0 {
+				log.Printf("info waiting for %d threads to finish", len(threadsC))
+				<-time.After(1 * time.Second)
+			}
+			for len(asyncErrC) > 0 {
+				<-asyncErrC
+			}
+			continue
+		}
+		break
+	}
 	return nil
 }
 
 func loopCubiomes(ctx context.Context) {
+	threadsC <- struct{}{}
 	defer func() {
 		<-threadsC
 	}()

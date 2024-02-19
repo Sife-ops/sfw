@@ -70,48 +70,52 @@ func datamineWorld(ctx context.Context, world World) (World, error) {
 			continue
 		}
 
-		for xc := x1 / 16; xc < (x2+1)/16; xc++ {
-			for zc := z1 / 16; zc < (z2+1)/16; zc++ {
-				data, err := regions[rx+1][rz+1].ReadSector(ToSector(xc), ToSector(zc))
-				if err != nil {
-					return world, err
-				}
+		dx := (x2 - x1 + 1) / 16
+		a := dx * (z2 - z1 + 1) / 16
 
-				var chunkSave save.Chunk
-				err = chunkSave.Load(data)
-				if err != nil {
-					return world, err
-				}
+		for c := 0; c < a; c++ {
+			xc := c%dx + x1/16
+			zc := c/dx + z1/16
 
-				chunkLevel, err := level.ChunkFromSave(&chunkSave)
-				if err != nil {
-					return world, err
-				}
+			sector, err := regions[rx+1][rz+1].ReadSector(ToSector(xc), ToSector(zc))
+			if err != nil {
+				return world, err
+			}
 
-				y10 := 256 * 10
-				for i := y10; i < y10+256; i++ {
-					x := chunkLevel.GetBlockID(1, i)
-					if x == "minecraft:magma_block" || x == "minecraft:obsidian" {
-						goodBlocksAbove := 0
-						for j := 0; j < 52; j++ {
-							yj := i + (j+1)*256
-							s := (yj / 4096) + 1
-							ys := (yj % 4096)
-							x := chunkLevel.GetBlockID(s, ys)
+			var chunkSave save.Chunk
+			err = chunkSave.Load(sector)
+			if err != nil {
+				return world, err
+			}
 
-							if x == "minecraft:water" || x == "minecraft:kelp_plant" {
-								goodBlocksAbove++
-							}
+			chunkLevel, err := level.ChunkFromSave(&chunkSave)
+			if err != nil {
+				return world, err
+			}
+
+			y10 := 256 * 10
+			for i := y10; i < y10+256; i++ {
+				x := chunkLevel.GetBlockID(1, i)
+				if x == "minecraft:magma_block" || x == "minecraft:obsidian" {
+					goodBlocksAbove := 0
+					for j := 0; j < 52; j++ {
+						yj := i + (j+1)*256
+						s := (yj / 4096) + 1
+						ys := (yj % 4096)
+						x := chunkLevel.GetBlockID(s, ys)
+
+						if x == "minecraft:water" || x == "minecraft:kelp_plant" {
+							goodBlocksAbove++
 						}
+					}
 
-						lavaBlocksBelow := 0
-						if x := chunkLevel.GetBlockID(1, i-256); x == "minecraft:lava" {
-							lavaBlocksBelow++
-						}
+					lavaBlocksBelow := 0
+					if x := chunkLevel.GetBlockID(1, i-256); x == "minecraft:lava" {
+						lavaBlocksBelow++
+					}
 
-						if goodBlocksAbove >= 50 && lavaBlocksBelow > 0 {
-							exposedRavineBlocks++
-						}
+					if goodBlocksAbove >= 50 && lavaBlocksBelow > 0 {
+						exposedRavineBlocks++
 					}
 				}
 			}
@@ -133,28 +137,32 @@ func datamineWorld(ctx context.Context, world World) (World, error) {
 			continue
 		}
 
-		for xc := x1 / 16; xc < (x2+1)/16; xc++ {
-			for zc := z1 / 16; zc < (z2+1)/16; zc++ {
-				data, err := regions[rx+1][rz+1].ReadSector(ToSector(xc), ToSector(zc))
-				if err != nil {
-					return world, err
-				}
+		dx := (x2 - x1 + 1) / 16
+		a := dx * (z2 - z1 + 1) / 16
 
-				var chunkSave save.Chunk
-				err = chunkSave.Load(data)
-				if err != nil {
-					return world, err
-				}
+		for c := 0; c < a; c++ {
+			xc := c%dx + x1/16
+			zc := c/dx + z1/16
 
-				if len(chunkSave.Level.Structures.Starts.Shipwreck.Children) < 1 {
-					continue
-				}
+			sector, err := regions[rx+1][rz+1].ReadSector(ToSector(xc), ToSector(zc))
+			if err != nil {
+				return world, err
+			}
 
-				for _, v := range chunkSave.Level.Structures.Starts.Shipwreck.Children {
-					for _, w := range goodShipwrecks {
-						if v.Template == w {
-							shipwrecksWithIron = append(shipwrecksWithIron, v.Template)
-						}
+			var chunkSave save.Chunk
+			err = chunkSave.Load(sector)
+			if err != nil {
+				return world, err
+			}
+
+			if len(chunkSave.Level.Structures.Starts.Shipwreck.Children) < 1 {
+				continue
+			}
+
+			for _, v := range chunkSave.Level.Structures.Starts.Shipwreck.Children {
+				for _, w := range goodShipwrecks {
+					if v.Template == w {
+						shipwrecksWithIron = append(shipwrecksWithIron, v.Template)
 					}
 				}
 			}
