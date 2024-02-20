@@ -68,6 +68,23 @@ func run() error {
 	}
 }
 
+var c1 = make(chan struct{})
+
+// func f1(ctx context.Context) {
+// 	for {
+// 		world := []lib.World{}
+// 		if err := lib.Db.SelectContext(ctx, &world,
+// 			`SELECT * 
+// 			FROM world
+// 			WHERE finished_worldgen IS NULL`,
+// 		); err != nil {
+// 			generateErrC <- err
+// 			return
+// 		}
+// 		c1 <- struct{}{}
+// 	}
+// }
+
 func generate(ctx context.Context) {
 	worldNotGeneratedC := make(chan lib.World, 1)
 	go func() {
@@ -84,7 +101,7 @@ func generate(ctx context.Context) {
 			FROM world
 			WHERE finished_worldgen IS NULL`,
 			// // 9154804515642838022
-			// `SELECT * 
+			// `SELECT *
 			// FROM world
 			// WHERE seed='9154804515642838022'`,
 		); err != nil {

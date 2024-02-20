@@ -111,7 +111,7 @@ func saveWorld(ctx context.Context) {
 		select {
 		case <-ctxTo.Done():
 			log.Printf("info database not responding")
-			cancel()
+			// cancel()
 			goto Retry
 		case <-savedC:
 		case err := <-errC:

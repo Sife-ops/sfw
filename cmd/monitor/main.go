@@ -10,7 +10,6 @@ import (
 )
 
 var monitorLog *os.File
-var asyncErrC = make(chan error)
 var sigC = make(chan os.Signal, 1)
 
 func init() {
@@ -18,27 +17,24 @@ func init() {
 }
 
 func main() {
+	if err := run(); err != nil {
+		log.Printf("%v", err)
+	}
+}
+
+func run() error {
 	var err error
 	monitorLog, err = os.OpenFile("./tmp/monitor-log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
-	defer func() {
-		if err := monitorLog.Close(); err != nil {
-			log.Fatalln(err)
-		}
-	}()
+	defer monitorLog.Close()
 
 	listener, err := net.Listen("tcp", lib.Cfg.Log.GetHost())
 	if err != nil {
-		log.Fatalln(err)
-		return
+		return err
 	}
-	defer func() {
-		if err := listener.Close(); err != nil {
-			log.Fatalln(err)
-		}
-	}()
+	defer listener.Close()
 
 	log.Printf("info listening on %s\n", lib.Cfg.Log.GetHost())
 
@@ -56,22 +52,20 @@ func main() {
 		}()
 
 		select {
-		case <-sigC:
-			return
-		case err := <-errC:
-			log.Println(err)
 		case so := <-sockC:
 			go readSocket(so)
+			continue
+		case err := <-errC:
+			log.Println(err)
+			continue
+		case <-sigC:
 		}
+		return nil
 	}
 }
 
 func readSocket(sock net.Conn) {
-	defer func() {
-		if err := sock.Close(); err != nil {
-			log.Println(err)
-		}
-	}()
+	defer sock.Close()
 
 	b := make([]byte, 1024)
 	mLen, err := sock.Read(b)
